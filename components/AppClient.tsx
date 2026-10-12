@@ -783,6 +783,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Step-Up + Knee Drive|dumbbell': '/exercise-images/dumbbell/step_up_knee_drive.png',
   'Strict Press|kettlebell': '/exercise-images/kettlebell/strict_press.png',
   'Swing + Goblet Squat|kettlebell': '/exercise-images/kettlebell/swing_goblet_squat.png',
+  // Batch 35 additions (10 verified content-matched, single athlete, circular logo).
+  'Swing + High Pull|kettlebell': '/exercise-images/kettlebell/swing_high_pull.png',
+  'Reverse Lunge + Press|dumbbell': '/exercise-images/dumbbell/reverse_lunge_press.png',
+  'Shin Box Get-Up|bodyweight': '/exercise-images/bodyweight/shin_box_get_up.png',
+  'Turkish Get-Up to Elbow|dumbbell': '/exercise-images/dumbbell/turkish_get_up_to_elbow__dumbbell.png',
+  'Turkish Get-Up to Half-Kneeling|kettlebell': '/exercise-images/kettlebell/turkish_get_up_to_half_kneeling.png',
+  'Burpee Step-Back|bodyweight': '/exercise-images/bodyweight/burpee_step_back.png',
+  'Dumbbell Deadlift to Shrug|dumbbell': '/exercise-images/dumbbell/dumbbell_deadlift_to_shrug.png',
+  'Dumbbell Squat|dumbbell': '/exercise-images/dumbbell/dumbbell_squat.png',
+  'KB Deadlift High Pull|kettlebell': '/exercise-images/kettlebell/kb_deadlift_high_pull.png',
+  'KB Goblet Step-Up|kettlebell': '/exercise-images/kettlebell/kb_goblet_step_up.png',
 };
 
 /** The three fixed equipment-type logos — NOT exercise-specific, just one
