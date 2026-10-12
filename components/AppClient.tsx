@@ -772,6 +772,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Lateral Lunge|bodyweight': '/exercise-images/bodyweight/lateral_lunge__bodyweight.png',
   'Lateral Lunge|kettlebell': '/exercise-images/kettlebell/lateral_lunge__kettlebell.png',
   'One-Arm Floor Press|kettlebell': '/exercise-images/kettlebell/one_arm_floor_press.png',
+  // Batch 34 additions (10 verified content-matched, single athlete, circular logo).
+  'Single-Leg Deadlift|kettlebell': '/exercise-images/kettlebell/single_leg_deadlift.png',
+  'Single-Leg Glute Bridge|bodyweight': '/exercise-images/bodyweight/single_leg_glute_bridge.png',
+  'Single-Leg Hip Thrust|dumbbell': '/exercise-images/dumbbell/single_leg_hip_thrust.png',
+  'Single-Leg Squat to Chair|bodyweight': '/exercise-images/bodyweight/single_leg_squat_to_chair.png',
+  'Spider Curl|dumbbell': '/exercise-images/dumbbell/spider_curl.png',
+  'Sprawl|bodyweight': '/exercise-images/bodyweight/sprawl.png',
+  'Squat + Alternating Punch|dumbbell': '/exercise-images/dumbbell/squat_alternating_punch.png',
+  'Step-Up + Knee Drive|dumbbell': '/exercise-images/dumbbell/step_up_knee_drive.png',
+  'Strict Press|kettlebell': '/exercise-images/kettlebell/strict_press.png',
+  'Swing + Goblet Squat|kettlebell': '/exercise-images/kettlebell/swing_goblet_squat.png',
 };
 
 /** The three fixed equipment-type logos — NOT exercise-specific, just one
