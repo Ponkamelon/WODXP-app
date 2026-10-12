@@ -2735,8 +2735,524 @@ function ProfileMenu({ username, onLogout, onPrivacy, allTimeStats }: { username
   );
 }
 
+// ─── Friends (step 1: invite codes, friend list, sharing controls, shared streak + level) ──
+interface FriendSettingsData {
+  friends_enabled: boolean; share_last_workout: boolean; allow_invites: boolean; allow_challenges: boolean;
+  notify_invites: boolean; notify_challenges: boolean; notify_progress: boolean;
+}
+interface FriendEntry {
+  friendship_id: string; friend_id: string; username: string; avatar_url: string | null;
+  paused: boolean; quest_level: number | null; last_workout_hidden: boolean;
+  last_workout: { completed_at: string; format: string; duration_minutes: number } | null;
+  friends_level: number; friends_xp: number; level_min_xp: number | null; next_level_xp: number | null;
+  current_streak: number; best_streak: number; timezone: string; since: string;
+  me_trained_this_week: boolean; friend_trained_this_week: boolean;
+}
+interface FriendInviteRow { id: string; invited_email: string | null; status: string; created_at: string; expires_at: string; }
+interface FriendConfirmRow { id: string; recipient_username: string; responded_at: string; confirm_expires_at: string; }
+interface FriendReceivedRow { id: string; sender_username: string; status: string; responded_at: string; }
+interface FriendsOverview {
+  enabled: boolean; settings: FriendSettingsData; friends: FriendEntry[];
+  sent_invites: FriendInviteRow[]; pending_confirmations: FriendConfirmRow[]; received_invites: FriendReceivedRow[];
+  blocked: { user_id: string; username: string }[];
+}
+
+// All Friends texts in one place so the wording (or language) can be changed in one edit.
+const FRIENDS_TEXT = {
+  title: 'Friends',
+  emptyTitle: 'Train together with a friend.',
+  emptyBody: 'Send your first invite.',
+  createInvite: 'Create invite code',
+  emailLabel: 'Friend’s email (optional)',
+  emailHelp: 'No email is sent by the app. If you add an email, only that verified email can accept the code. Send the code yourself.',
+  haveCode: 'Have a code?',
+  codePlaceholder: 'XXXX-XXXX-XXXX-XXXX',
+  accept: 'Accept',
+  decline: 'Decline',
+  shareInfo: 'Once you accept, your friend can see: display name, avatar, your Quest level, your latest workout summary (if you allow it) and shared challenge data. Never your email, age, height, body weight, BMI or full history.',
+  newWeek: 'New week, new shared step.',
+  loadError: 'Couldn’t load Friends. Your old data is not shown as current.',
+  retry: 'Try again',
+} as const;
+
+function friendsErrorText(raw: string | undefined): string {
+  const m = raw ?? '';
+  if (m.includes('daily_limit')) return 'You’ve reached today’s invite limit. Try again tomorrow.';
+  if (m.includes('email_rate_limited')) return 'You already invited this email recently. Try again in a few days.';
+  if (m.includes('duplicate_invite')) return 'You already have a pending invite for this email.';
+  if (m.includes('invalid_email')) return 'That email address doesn’t look right.';
+  if (m.includes('self_invite')) return 'You can’t invite yourself.';
+  if (m.includes('friends_disabled')) return 'Friends is switched off. Turn it on in Friends settings first.';
+  if (m.includes('invites_off')) return 'You’ve turned off new friend invites in Friends settings.';
+  if (m.includes('wrong_account')) return 'This code is locked to a different verified email.';
+  if (m.includes('already_friends')) return 'You are already friends.';
+  if (m.includes('too_many_attempts')) return 'Too many tries. Please wait an hour and try again.';
+  if (m.includes('confirmation_expired')) return 'This request expired. Ask your friend for a new code.';
+  if (m.includes('invalid_request')) return 'This request is no longer available.';
+  if (m.includes('invalid_code')) return 'That code isn’t valid. It may be wrong, used or expired.';
+  return 'Something went wrong. Please try again.';
+}
+
+function FriendToggleRow({ label, hint, value, onChange, disabled }: { label: string; hint?: string; value: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+  return (
+    <button onClick={() => onChange(!value)} disabled={disabled} className="flex w-full items-center justify-between gap-3 py-3 text-left" style={{ opacity: disabled ? 0.5 : 1 }}>
+      <div>
+        <p className="text-sm font-medium" style={{ color: C.text }}>{label}</p>
+        {hint && <p className="text-xs" style={{ color: C.muted }}>{hint}</p>}
+      </div>
+      <div className="relative h-6 w-11 shrink-0 rounded-full transition-colors" style={{ backgroundColor: value ? C.xp : C.border }}>
+        <div className="absolute top-0.5 h-5 w-5 rounded-full transition-all" style={{ left: value ? 22 : 2, backgroundColor: value ? '#04140A' : C.muted }} />
+      </div>
+    </button>
+  );
+}
+
+function FriendCard({ friend, onEnd, onBlock }: { friend: FriendEntry; onEnd: () => void; onBlock: () => void }) {
+  const initial = friend.username.slice(0, 1).toUpperCase();
+  const isMax = friend.next_level_xp === null;
+  const base = friend.level_min_xp ?? 0;
+  const pct = isMax ? 100 : Math.max(0, Math.min(100, Math.round(((friend.friends_xp - base) / Math.max(1, (friend.next_level_xp ?? base + 1) - base)) * 100)));
+  let weekText: string = FRIENDS_TEXT.newWeek;
+  if (friend.me_trained_this_week && friend.friend_trained_this_week) weekText = 'You both trained this week. Nice teamwork!';
+  else if (friend.me_trained_this_week) weekText = 'You’ve trained. Waiting for your friend.';
+  else if (friend.friend_trained_this_week) weekText = 'Your friend has trained. Your turn!';
+  let lastText = 'No workouts yet';
+  if (friend.last_workout_hidden) lastText = 'Workout info is not shared';
+  else if (friend.last_workout) {
+    const d = new Date(friend.last_workout.completed_at);
+    lastText = `Last workout: ${d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} · ${friend.last_workout.format.toUpperCase()} · ${friend.last_workout.duration_minutes} min`;
+  }
+
+  return (
+    <div className="rounded-2xl border p-4" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+      <div className="flex items-center gap-3">
+        {friend.avatar_url ? (
+          <img src={friend.avatar_url} alt="" className="h-11 w-11 rounded-full object-cover" />
+        ) : (
+          <div className="flex h-11 w-11 items-center justify-center rounded-full text-base font-bold" style={{ backgroundColor: `${C.xp}22`, color: C.xp, ...SG }}>{initial}</div>
+        )}
+        <div className="flex-1">
+          <p className="text-base font-bold" style={SG}>{friend.username}</p>
+          {friend.paused ? (
+            <p className="text-xs" style={{ color: C.muted }}>Has paused Friends</p>
+          ) : (
+            <p className="text-xs" style={{ color: C.muted }}>Quest Lv <span style={MO}>{friend.quest_level ?? '-'}</span></p>
+          )}
+        </div>
+      </div>
+
+      {!friend.paused && (
+        <div className="mt-3 flex flex-col gap-3">
+          <p className="text-xs" style={{ color: C.muted }}>{lastText}</p>
+
+          <div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-bold uppercase tracking-wider" style={{ color: C.mobility }}>Friends Lv {friend.friends_level}</span>
+              <span style={{ color: C.muted, ...MO }}>{isMax ? 'Max level' : `${friend.friends_xp} / ${friend.next_level_xp} XP`}</span>
+            </div>
+            <div className="mt-1 h-2 overflow-hidden rounded-full" style={{ backgroundColor: C.border }}>
+              <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: C.mobility }} />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Flame size={16} color="#FF9D4D" fill="#FF9D4D" />
+            <span className="text-sm font-semibold" style={MO}>{friend.current_streak}</span>
+            <span className="text-xs" style={{ color: C.muted }}>week streak together · best {friend.best_streak}</span>
+          </div>
+          <p className="text-xs" style={{ color: C.text }}>{weekText}</p>
+          <p className="text-[10px]" style={{ color: C.muted }}>Weeks run Monday to Sunday ({friend.timezone}).</p>
+        </div>
+      )}
+
+      <div className="mt-3 flex gap-2">
+        <button onClick={onEnd} className="flex-1 rounded-xl border py-2 text-xs font-bold" style={{ borderColor: C.border, color: C.muted, ...SG }}>End friendship</button>
+        <button onClick={onBlock} className="flex-1 rounded-xl border py-2 text-xs font-bold" style={{ borderColor: C.border, color: C.boss, ...SG }}>Block</button>
+      </div>
+    </div>
+  );
+}
+
+function FriendsScreen() {
+  const [overview, setOverview] = useState<FriendsOverview | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [view, setView] = useState<'main' | 'settings'>('main');
+  const [email, setEmail] = useState('');
+  const [createdCode, setCreatedCode] = useState<{ code: string; expires_at: string } | null>(null);
+  const [codeInput, setCodeInput] = useState('');
+  const [preview, setPreview] = useState<{ code: string; sender_username: string; email_bound: boolean } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
+  const [confirm, setConfirm] = useState<{ kind: 'end' | 'block' | 'disable'; friend?: FriendEntry } | null>(null);
+  const [levelUp, setLevelUp] = useState<string | null>(null);
+  const levelsRef = React.useRef<Record<string, number>>({});
+
+  const load = async () => {
+    setLoading(true);
+    setLoadError(false);
+    const supabase = createClient();
+    const { data, error } = await supabase.rpc('get_friends_overview');
+    if (error || !data) {
+      setOverview(null);
+      setLoadError(true);
+      setLoading(false);
+      return;
+    }
+    const ov = data as FriendsOverview;
+    for (const f of ov.friends) {
+      const prev = levelsRef.current[f.friendship_id];
+      if (prev !== undefined && f.friends_level > prev) setLevelUp(`Level up! You and ${f.username} reached Friends Lv ${f.friends_level}.`);
+      levelsRef.current[f.friendship_id] = f.friends_level;
+    }
+    setOverview(ov);
+    setLoading(false);
+  };
+
+  React.useEffect(() => {
+    load();
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      const c = url.searchParams.get('friend');
+      if (c) {
+        setCodeInput(c);
+        url.searchParams.delete('friend');
+        window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+        checkCode(c);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const run = async (fn: () => Promise<{ error: { message: string } | null }>, okText?: string) => {
+    setBusy(true);
+    setMessage(null);
+    const { error } = await fn();
+    setBusy(false);
+    if (error) { setMessage({ text: friendsErrorText(error.message), ok: false }); return false; }
+    if (okText) setMessage({ text: okText, ok: true });
+    await load();
+    return true;
+  };
+
+  const createInvite = async () => {
+    setBusy(true);
+    setMessage(null);
+    const supabase = createClient();
+    const { data, error } = await supabase.rpc('create_friend_invite', { p_email: email.trim() === '' ? null : email.trim() });
+    setBusy(false);
+    if (error || !data) { setMessage({ text: friendsErrorText(error?.message), ok: false }); return; }
+    setCreatedCode({ code: data.code, expires_at: data.expires_at });
+    setEmail('');
+    await load();
+  };
+
+  const inviteMessage = (c: { code: string; expires_at: string }) =>
+    `Train with me on WODXP! Open this link and log in: ${typeof window !== 'undefined' ? window.location.origin : ''}/?friend=${encodeURIComponent(c.code)}  If the link doesn't open the invite, go to the Friends tab, tap "${FRIENDS_TEXT.haveCode}" and enter this code: ${c.code} (valid until ${new Date(c.expires_at).toLocaleDateString()}).`;
+
+  const shareCode = async () => {
+    if (!createdCode) return;
+    const text = inviteMessage(createdCode);
+    try {
+      const nav = typeof navigator !== 'undefined' ? navigator : null;
+      if (!nav) return;
+      if (typeof nav.share === 'function') { await nav.share({ text }); return; }
+      await nav.clipboard.writeText(text);
+      setMessage({ text: 'Invite text copied. Paste it into a message or email.', ok: true });
+    } catch { /* share cancelled */ }
+  };
+
+  const checkCode = async (codeArg?: string) => {
+    const code = codeArg ?? codeInput;
+    setBusy(true);
+    setMessage(null);
+    const supabase = createClient();
+    const { data, error } = await supabase.rpc('preview_friend_invite', { p_code: code });
+    setBusy(false);
+    if (error) { setMessage({ text: friendsErrorText(error.message), ok: false }); return; }
+    if (!data || data.error) { setMessage({ text: friendsErrorText(data?.error ?? 'invalid_code'), ok: false }); return; }
+    setPreview({ code, sender_username: data.sender_username, email_bound: data.email_bound });
+  };
+
+  const respond = async (accept: boolean) => {
+    if (!preview) return;
+    setBusy(true);
+    setMessage(null);
+    const supabase = createClient();
+    const { data, error } = await supabase.rpc('respond_friend_invite', { p_code: preview.code, p_accept: accept });
+    setBusy(false);
+    if (error) { setMessage({ text: friendsErrorText(error.message), ok: false }); return; }
+    if (data?.error) { setMessage({ text: friendsErrorText(data.error), ok: false }); setPreview(null); return; }
+    setPreview(null);
+    setCodeInput('');
+    setMessage({ text: accept ? `Accepted. ${preview.sender_username} now needs to confirm before you become friends.` : 'Invite declined.', ok: accept });
+    await load();
+  };
+
+  const confirmInvite = async (id: string, yes: boolean) => {
+    setBusy(true);
+    setMessage(null);
+    const supabase = createClient();
+    const { data, error } = await supabase.rpc('confirm_friend_invite', { p_id: id, p_confirm: yes });
+    setBusy(false);
+    if (error) { setMessage({ text: friendsErrorText(error.message), ok: false }); await load(); return; }
+    if (data?.error) { setMessage({ text: friendsErrorText(data.error), ok: false }); await load(); return; }
+    setMessage({ text: yes ? 'You’re now friends!' : 'Request rejected. They will only see “Not accepted”.', ok: yes });
+    await load();
+  };
+
+  const saveSettings = async (patch: Partial<FriendSettingsData>) => {
+    if (!overview) return;
+    const s = { ...overview.settings, ...patch };
+    const supabase = createClient();
+    await run(async () => supabase.rpc('update_friend_settings', {
+      p_share_last_workout: s.share_last_workout, p_allow_invites: s.allow_invites, p_allow_challenges: s.allow_challenges,
+      p_notify_invites: s.notify_invites, p_notify_challenges: s.notify_challenges, p_notify_progress: s.notify_progress,
+    }));
+  };
+
+  const doConfirm = async () => {
+    if (!confirm) return;
+    const supabase = createClient();
+    const c = confirm;
+    setConfirm(null);
+    if (c.kind === 'end' && c.friend) await run(async () => supabase.rpc('end_friendship', { p_friendship: c.friend!.friendship_id }), 'Friendship ended.');
+    if (c.kind === 'block' && c.friend) await run(async () => supabase.rpc('block_friend_user', { p_user: c.friend!.friend_id }), `${c.friend.username} is blocked.`);
+    if (c.kind === 'disable') await run(async () => supabase.rpc('set_friends_enabled', { p_enabled: false }), 'Friends is switched off.');
+  };
+
+  const statusLabel = (s: string) => ({ pending: 'Waiting', awaiting_confirmation: 'Accepted, waiting for your confirmation', accepted: 'Friends', declined: 'Not accepted', rejected: 'Rejected by you', revoked: 'Cancelled', expired: 'Expired', not_accepted: 'Not accepted' } as Record<string, string>)[s] ?? s;
+
+  if (loading && !overview) {
+    return (
+      <div className="min-h-screen pb-24" style={{ backgroundColor: C.bg }}>
+        <header className="px-5 pt-6 pb-4"><h1 className="text-2xl font-bold" style={SG}>{FRIENDS_TEXT.title}</h1></header>
+        <p className="px-5 text-sm" style={{ color: C.muted }}>Loading...</p>
+      </div>
+    );
+  }
+  if (loadError || !overview) {
+    return (
+      <div className="min-h-screen pb-24" style={{ backgroundColor: C.bg }}>
+        <header className="px-5 pt-6 pb-4"><h1 className="text-2xl font-bold" style={SG}>{FRIENDS_TEXT.title}</h1></header>
+        <div className="mx-5 rounded-2xl border p-4" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+          <p className="text-sm" style={{ color: C.text }}>{FRIENDS_TEXT.loadError}</p>
+          <button onClick={load} className="mt-3 rounded-xl px-4 py-2 text-sm font-bold" style={{ backgroundColor: C.xp, color: '#04140A', ...SG }}>{FRIENDS_TEXT.retry}</button>
+        </div>
+      </div>
+    );
+  }
+
+  const confirmModal = confirm ? (
+    <SafeModalShell onBackdropClick={() => setConfirm(null)}>
+      <div className="w-full max-w-sm rounded-3xl border p-6 text-center" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+        <h2 className="text-lg font-bold" style={SG}>
+          {confirm.kind === 'end' ? `End friendship with ${confirm.friend?.username}?` : confirm.kind === 'block' ? `Block ${confirm.friend?.username}?` : 'Switch off Friends?'}
+        </h2>
+        <p className="mt-2 text-sm" style={{ color: C.muted }}>
+          {confirm.kind === 'end' && 'Your shared streak and Friends level are archived. Your own workouts and XP are not affected. Becoming friends again needs a new invite and starts at Friends Lv 1.'}
+          {confirm.kind === 'block' && 'This ends the friendship and stops any new invites between you. Your own workouts and XP are not affected.'}
+          {confirm.kind === 'disable' && 'Friends is paused for everyone. No one can see your Friends info or invite you. When you switch it back on, the shared streak restarts at 0 and your best streak and Friends level are kept.'}
+        </p>
+        <div className="mt-5 flex flex-col gap-2">
+          <button onClick={doConfirm} className="rounded-2xl py-3 text-sm font-bold" style={{ backgroundColor: C.boss, color: '#1A0A00', ...SG }}>
+            {confirm.kind === 'end' ? 'End friendship' : confirm.kind === 'block' ? 'Block' : 'Switch off'}
+          </button>
+          <button onClick={() => setConfirm(null)} className="rounded-2xl border py-3 text-sm font-bold" style={{ borderColor: C.border, color: C.muted, ...SG }}>Cancel</button>
+        </div>
+      </div>
+    </SafeModalShell>
+  ) : null;
+
+  const messageBox = message ? (
+    <div className="mx-5 mt-3 rounded-xl border px-4 py-3 text-sm" style={{ borderColor: message.ok ? C.xp : C.boss, color: C.text, backgroundColor: `${message.ok ? C.xp : C.boss}12` }}>
+      {message.text}
+    </div>
+  ) : null;
+
+  if (view === 'settings') {
+    const s = overview.settings;
+    return (
+      <div className="min-h-screen pb-24" style={{ backgroundColor: C.bg }}>
+        <header className="flex items-center gap-3 px-5 pt-6 pb-2">
+          <button onClick={() => setView('main')} aria-label="Back" className="rounded-full border p-2" style={{ borderColor: C.border }}><ArrowLeft size={18} /></button>
+          <h1 className="text-2xl font-bold" style={SG}>Friends settings</h1>
+        </header>
+        {messageBox}
+        <div className="mx-5 mt-4 rounded-2xl border px-4 divide-y" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+          <FriendToggleRow label="Show my latest workout" hint="Off: friends see “Workout info is not shared”." value={s.share_last_workout} disabled={busy || !overview.enabled} onChange={(v) => saveSettings({ share_last_workout: v })} />
+          <FriendToggleRow label="Allow new friend invites" value={s.allow_invites} disabled={busy || !overview.enabled} onChange={(v) => saveSettings({ allow_invites: v })} />
+          <FriendToggleRow label="Allow new challenges from friends" hint="Used when challenges arrive. Accepted challenges are not affected." value={s.allow_challenges} disabled={busy || !overview.enabled} onChange={(v) => saveSettings({ allow_challenges: v })} />
+          <FriendToggleRow label="Notify: invites" value={s.notify_invites} disabled={busy || !overview.enabled} onChange={(v) => saveSettings({ notify_invites: v })} />
+          <FriendToggleRow label="Notify: challenges" value={s.notify_challenges} disabled={busy || !overview.enabled} onChange={(v) => saveSettings({ notify_challenges: v })} />
+          <FriendToggleRow label="Notify: shared progress" value={s.notify_progress} disabled={busy || !overview.enabled} onChange={(v) => saveSettings({ notify_progress: v })} />
+        </div>
+
+        <div className="mx-5 mt-4 rounded-2xl border p-4" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+          <p className="text-sm font-bold" style={SG}>{overview.enabled ? 'Friends is on' : 'Friends is off'}</p>
+          <p className="mt-1 text-xs" style={{ color: C.muted }}>Friends is optional. Switching it off never costs you individual XP or streak.</p>
+          {overview.enabled ? (
+            <button onClick={() => setConfirm({ kind: 'disable' })} disabled={busy} className="mt-3 w-full rounded-xl border py-2.5 text-sm font-bold" style={{ borderColor: C.boss, color: C.boss, ...SG }}>Switch off Friends</button>
+          ) : (
+            <button onClick={() => run(async () => createClient().rpc('set_friends_enabled', { p_enabled: true }), 'Friends is switched on.')} disabled={busy} className="mt-3 w-full rounded-xl py-2.5 text-sm font-bold" style={{ backgroundColor: C.xp, color: '#04140A', ...SG }}>Switch on Friends</button>
+          )}
+        </div>
+
+        <div className="mx-5 mt-4 rounded-2xl border p-4" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+          <p className="text-sm font-bold" style={SG}>Blocked people</p>
+          {overview.blocked.length === 0 ? (
+            <p className="mt-1 text-xs" style={{ color: C.muted }}>No one is blocked.</p>
+          ) : (
+            <ul className="mt-2 flex flex-col gap-2">
+              {overview.blocked.map((b) => (
+                <li key={b.user_id} className="flex items-center justify-between">
+                  <span className="text-sm">{b.username}</span>
+                  <button onClick={() => run(async () => createClient().rpc('unblock_friend_user', { p_user: b.user_id }), `${b.username} is unblocked.`)} disabled={busy} className="rounded-lg border px-3 py-1 text-xs font-bold" style={{ borderColor: C.border, color: C.muted }}>Unblock</button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        {confirmModal}
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen pb-24" style={{ backgroundColor: C.bg }}>
+      <header className="flex items-center justify-between px-5 pt-6 pb-2">
+        <h1 className="text-2xl font-bold" style={SG}>{FRIENDS_TEXT.title}</h1>
+        <button onClick={() => setView('settings')} className="rounded-full border px-3 py-1.5 text-xs font-bold" style={{ borderColor: C.border, color: C.muted, ...SG }}>Settings</button>
+      </header>
+      {messageBox}
+      {levelUp && (
+        <div className="mx-5 mt-3 flex items-center justify-between rounded-xl border px-4 py-3 text-sm font-bold" style={{ borderColor: C.mobility, backgroundColor: `${C.mobility}15`, color: C.text, ...SG }}>
+          <span>{levelUp}</span>
+          <button onClick={() => setLevelUp(null)} aria-label="Dismiss" className="ml-3 text-xs" style={{ color: C.muted }}>OK</button>
+        </div>
+      )}
+
+      {!overview.enabled ? (
+        <div className="mx-5 mt-4 rounded-2xl border p-4" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+          <p className="text-sm" style={{ color: C.text }}>Friends is switched off. Your friends can’t see anything from you and you can’t see them.</p>
+          <button onClick={() => run(async () => createClient().rpc('set_friends_enabled', { p_enabled: true }), 'Friends is switched on.')} disabled={busy} className="mt-3 rounded-xl px-4 py-2 text-sm font-bold" style={{ backgroundColor: C.xp, color: '#04140A', ...SG }}>Switch on Friends</button>
+        </div>
+      ) : (
+        <>
+          {overview.pending_confirmations.length > 0 && (
+            <section className="px-5 pt-4">
+              <h2 className="mb-2 text-sm font-bold uppercase tracking-wide" style={{ color: C.boss, ...SG }}>Needs your confirmation</h2>
+              <div className="flex flex-col gap-3">
+                {overview.pending_confirmations.map((c) => (
+                  <div key={c.id} className="rounded-2xl border p-4" style={{ borderColor: C.boss, backgroundColor: `${C.boss}0F` }}>
+                    <p className="text-sm" style={{ color: C.text }}><span className="font-bold">{c.recipient_username}</span> accepted your invite. Is this the right person?</p>
+                    <p className="mt-1 text-xs" style={{ color: C.muted }}>Nothing is shared until you say yes. Valid until {new Date(c.confirm_expires_at).toLocaleDateString()}.</p>
+                    <div className="mt-3 flex gap-2">
+                      <button onClick={() => confirmInvite(c.id, true)} disabled={busy} className="flex-1 rounded-xl py-2.5 text-sm font-bold" style={{ backgroundColor: C.xp, color: '#04140A', ...SG }}>Yes, right person</button>
+                      <button onClick={() => confirmInvite(c.id, false)} disabled={busy} className="flex-1 rounded-xl border py-2.5 text-sm font-bold" style={{ borderColor: C.border, color: C.muted, ...SG }}>No</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          <section className="px-5 pt-4">
+            {overview.friends.length === 0 ? (
+              <div className="rounded-2xl border p-5 text-center" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+                <p className="text-base font-bold" style={SG}>{FRIENDS_TEXT.emptyTitle}</p>
+                <p className="mt-1 text-sm" style={{ color: C.muted }}>{FRIENDS_TEXT.emptyBody}</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {overview.friends.map((f) => (
+                  <FriendCard key={f.friendship_id} friend={f} onEnd={() => setConfirm({ kind: 'end', friend: f })} onBlock={() => setConfirm({ kind: 'block', friend: f })} />
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="px-5 pt-5">
+            <h2 className="mb-2 text-sm font-bold uppercase tracking-wide" style={SG}>Add a friend</h2>
+            <div className="rounded-2xl border p-4" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+              <label className="text-xs" style={{ color: C.muted }}>{FRIENDS_TEXT.emailLabel}</label>
+              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" inputMode="email" placeholder="friend@example.com"
+                className="mt-1 w-full rounded-xl border bg-transparent px-3 py-2 text-sm outline-none" style={{ borderColor: C.border, color: C.text }} />
+              <p className="mt-1 text-[11px]" style={{ color: C.muted }}>{FRIENDS_TEXT.emailHelp}</p>
+              <button onClick={createInvite} disabled={busy} className="mt-3 w-full rounded-xl py-2.5 text-sm font-bold" style={{ backgroundColor: C.xp, color: '#04140A', ...SG }}>{FRIENDS_TEXT.createInvite}</button>
+
+              {createdCode && (
+                <div className="mt-4 rounded-xl border p-3 text-center" style={{ borderColor: C.xp, backgroundColor: `${C.xp}0F` }}>
+                  <p className="text-xs" style={{ color: C.muted }}>Send this code to your friend. It is shown only now.</p>
+                  <p className="mt-1 text-xl font-bold tracking-widest" style={{ color: C.xp, ...MO }}>{createdCode.code}</p>
+                  <p className="mt-1 text-[11px]" style={{ color: C.muted }}>Valid until {new Date(createdCode.expires_at).toLocaleDateString()}</p>
+                  <button onClick={shareCode} className="mt-2 rounded-lg border px-4 py-1.5 text-xs font-bold" style={{ borderColor: C.border, color: C.text, ...SG }}>Share or copy invite text</button>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-3 rounded-2xl border p-4" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+              <p className="text-sm font-bold" style={SG}>{FRIENDS_TEXT.haveCode}</p>
+              {!preview ? (
+                <>
+                  <input value={codeInput} onChange={(e) => setCodeInput(e.target.value)} placeholder={FRIENDS_TEXT.codePlaceholder} autoCapitalize="characters"
+                    className="mt-2 w-full rounded-xl border bg-transparent px-3 py-2 text-sm uppercase outline-none" style={{ borderColor: C.border, color: C.text, ...MO }} />
+                  <button onClick={() => checkCode()} disabled={busy || codeInput.trim().length < 4} className="mt-2 w-full rounded-xl border py-2.5 text-sm font-bold" style={{ borderColor: C.border, color: C.text, opacity: codeInput.trim().length < 4 ? 0.5 : 1, ...SG }}>Check code</button>
+                </>
+              ) : (
+                <div className="mt-2">
+                  <p className="text-sm" style={{ color: C.text }}><span className="font-bold">{preview.sender_username}</span> wants to be your training friend.</p>
+                  <p className="mt-2 text-xs" style={{ color: C.muted }}>{FRIENDS_TEXT.shareInfo}</p>
+                  <div className="mt-3 flex gap-2">
+                    <button onClick={() => respond(true)} disabled={busy} className="flex-1 rounded-xl py-2.5 text-sm font-bold" style={{ backgroundColor: C.xp, color: '#04140A', ...SG }}>{FRIENDS_TEXT.accept}</button>
+                    <button onClick={() => respond(false)} disabled={busy} className="flex-1 rounded-xl border py-2.5 text-sm font-bold" style={{ borderColor: C.border, color: C.muted, ...SG }}>{FRIENDS_TEXT.decline}</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {overview.sent_invites.length > 0 && (
+            <section className="px-5 pt-5">
+              <h2 className="mb-2 text-sm font-bold uppercase tracking-wide" style={SG}>Sent invites</h2>
+              <ul className="flex flex-col gap-2">
+                {overview.sent_invites.map((i) => (
+                  <li key={i.id} className="flex items-center justify-between rounded-xl border px-4 py-3" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+                    <div>
+                      <p className="text-sm" style={{ color: C.text }}>{i.invited_email ?? 'Open code'}</p>
+                      <p className="text-[11px]" style={{ color: C.muted }}>{statusLabel(i.status)} · {new Date(i.created_at).toLocaleDateString()}</p>
+                    </div>
+                    {i.status === 'pending' && (
+                      <button onClick={() => run(async () => createClient().rpc('revoke_friend_invite', { p_id: i.id }), 'Invite cancelled.')} disabled={busy} className="rounded-lg border px-3 py-1 text-xs font-bold" style={{ borderColor: C.border, color: C.muted }}>Cancel</button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {overview.received_invites.length > 0 && (
+            <section className="px-5 pt-5">
+              <h2 className="mb-2 text-sm font-bold uppercase tracking-wide" style={SG}>Invites you answered</h2>
+              <ul className="flex flex-col gap-2">
+                {overview.received_invites.map((r) => (
+                  <li key={r.id} className="rounded-xl border px-4 py-3" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+                    <p className="text-sm" style={{ color: C.text }}>{r.sender_username}</p>
+                    <p className="text-[11px]" style={{ color: C.muted }}>{r.status === 'awaiting_confirmation' ? `Waiting for ${r.sender_username} to confirm` : statusLabel(r.status)} · {new Date(r.responded_at).toLocaleDateString()}</p>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </>
+      )}
+      {confirmModal}
+    </div>
+  );
+}
+
 // ─── App Shell ────────────────────────────────────────────────────────────────
-type Tab = 'home' | 'exercises' | 'wodxp' | 'stats' | 'profile';
+type Tab = 'home' | 'exercises' | 'wodxp' | 'friends' | 'stats' | 'profile';
 type Screen = 'tab' | 'generator' | 'safety' | 'workout' | 'complete' | 'challenge' | 'boss' | 'challenge-result' | 'boss-result' | 'wod-detail' | 'wod-result';
 
 /** Depth ranking per screen, used by PageTransition to infer forward vs
@@ -2770,6 +3286,10 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
   const [wodMedalsState, setWodMedalsState] = useState(wodMedals);
   const [selectedWod, setSelectedWod] = useState<ClassicWod | null>(null);
   const [wodResult, setWodResult] = useState<{ medal: string | null; scoreValue: number } | null>(null);
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('friend')) setTab('friends');
+  }, []);
 
   const refreshWodSummary = async () => {
     const supabase = createClient();
@@ -2877,6 +3397,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     { key: 'home', label: 'Home' },
     { key: 'exercises', label: 'Exercises' },
     { key: 'wodxp', label: 'WOD XP' },
+    { key: 'friends', label: 'Friends' },
     { key: 'stats', label: 'Stats' },
     { key: 'profile', label: 'Profile' },
   ];
@@ -2996,6 +3517,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     />
   );
   else if (tab === 'wodxp') content = <WodXpScreen stats={stats} classicWods={classicWods} summary={wodSummary} wodMedals={wodMedalsState} onOpenWod={(wod) => { setSelectedWod(wod); setScreen('wod-detail'); }} />;
+  else if (tab === 'friends') content = <FriendsScreen />;
   else if (tab === 'exercises') content = <ExercisesScreen exercises={exercises} />;
   else if (tab === 'stats') content = <StatsScreen stats={stats} />;
   else if (tab === 'profile') content = <ProfileMenu username={user.username} onLogout={handleLogout} onPrivacy={() => router.push('/privacy')} allTimeStats={allTimeStats} />;
