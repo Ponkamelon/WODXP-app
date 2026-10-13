@@ -802,6 +802,9 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'KB Goblet Walking Lunge|kettlebell': '/exercise-images/kettlebell/kb_goblet_walking_lunge.png',
   'KB Single-Arm Deadlift|kettlebell': '/exercise-images/kettlebell/kb_single_arm_deadlift.png',
   'Jumping Jack to Squat|bodyweight': '/exercise-images/bodyweight/jumping_jack_to_squat.png',
+  // Batch 38 additions (reworked lying single-arm presses from batch 37).
+  'KB Floor Press Bridge|kettlebell': '/exercise-images/kettlebell/kb_floor_press_bridge.png',
+  'Dumbbell Single-Arm Floor Press|dumbbell': '/exercise-images/dumbbell/dumbbell_single_arm_floor_press.png',
 };
 
 /** The three fixed equipment-type logos — NOT exercise-specific, just one
