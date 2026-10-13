@@ -794,6 +794,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Squat|dumbbell': '/exercise-images/dumbbell/dumbbell_squat.png',
   'KB Deadlift High Pull|kettlebell': '/exercise-images/kettlebell/kb_deadlift_high_pull.png',
   'KB Goblet Step-Up|kettlebell': '/exercise-images/kettlebell/kb_goblet_step_up.png',
+  // Batch 37 additions (7 verified content-matched, single athlete, circular logo).
+  'KB Overhead Hold|kettlebell': '/exercise-images/kettlebell/kb_overhead_hold.png',
+  'Cossack Shift|bodyweight': '/exercise-images/bodyweight/cossack_shift.png',
+  'Dumbbell Front Squat|dumbbell': '/exercise-images/dumbbell/dumbbell_front_squat.png',
+  'Dumbbell Incline Press|dumbbell': '/exercise-images/dumbbell/dumbbell_incline_press.png',
+  'KB Goblet Walking Lunge|kettlebell': '/exercise-images/kettlebell/kb_goblet_walking_lunge.png',
+  'KB Single-Arm Deadlift|kettlebell': '/exercise-images/kettlebell/kb_single_arm_deadlift.png',
+  'Jumping Jack to Squat|bodyweight': '/exercise-images/bodyweight/jumping_jack_to_squat.png',
+  // Batch 38 additions (reworked lying single-arm presses from batch 37).
+  'KB Floor Press Bridge|kettlebell': '/exercise-images/kettlebell/kb_floor_press_bridge.png',
+  'Dumbbell Single-Arm Floor Press|dumbbell': '/exercise-images/dumbbell/dumbbell_single_arm_floor_press.png',
 };
 
 /** The three fixed equipment-type logos — NOT exercise-specific, just one
