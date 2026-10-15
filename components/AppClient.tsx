@@ -805,6 +805,30 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   // Batch 38 additions (reworked lying single-arm presses from batch 37).
   'KB Floor Press Bridge|kettlebell': '/exercise-images/kettlebell/kb_floor_press_bridge.png',
   'Dumbbell Single-Arm Floor Press|dumbbell': '/exercise-images/dumbbell/dumbbell_single_arm_floor_press.png',
+  // Batch 41 additions (8 verified: single athlete, correct equipment, readable logo).
+  'Walking Lunge|dumbbell': '/exercise-images/dumbbell/walking_lunge__dumbbell.png',
+  'Walking Lunge|kettlebell': '/exercise-images/kettlebell/walking_lunge__kettlebell.png',
+  'Walking Lunge + Curl|dumbbell': '/exercise-images/dumbbell/walking_lunge_curl.png',
+  'Curtsy Lunge|dumbbell': '/exercise-images/dumbbell/curtsy_lunge__dumbbell.png',
+  'Dumbbell Front Rack March|dumbbell': '/exercise-images/dumbbell/dumbbell_front_rack_march.png',
+  'KB Front Rack March|kettlebell': '/exercise-images/kettlebell/kb_front_rack_march.png',
+  'KB Standing Side Bend|kettlebell': '/exercise-images/kettlebell/kb_standing_side_bend.png',
+  'One-Arm Shoulder Press|dumbbell': '/exercise-images/dumbbell/one_arm_shoulder_press.png',
+  // Batch 42 additions (7 verified: single athlete, correct equipment, readable logo).
+  'Plank Dumbbell Drag|dumbbell': '/exercise-images/dumbbell/plank_dumbbell_drag.png',
+  'Plank Kettlebell Drag|kettlebell': '/exercise-images/kettlebell/plank_kettlebell_drag.png',
+  'Shoulder-Tap Push-Up|bodyweight': '/exercise-images/bodyweight/shoulder_tap_push_up.png',
+  'Turkish Get-Up to Hand|kettlebell': '/exercise-images/kettlebell/turkish_get_up_to_hand__kettlebell.png',
+  "Waiter's Carry|kettlebell": '/exercise-images/kettlebell/waiters_carry.png',
+  'Broad Jump|bodyweight': '/exercise-images/bodyweight/broad_jump.png',
+  'Wide Push-Up|bodyweight': '/exercise-images/bodyweight/wide_push_up.png',
+  // Name-variant aliases (same image as the canonical key; names differ in the exercises table).
+  'Mountain Climbers|bodyweight': '/exercise-images/bodyweight/mountain_climber.png',
+  'Standing Mountain Climbers|bodyweight': '/exercise-images/bodyweight/standing_mountain_climber.png',
+  'Burpees|bodyweight': '/exercise-images/bodyweight/burpee.png',
+  '90/90 Hip Switches|bodyweight': '/exercise-images/bodyweight/90_90_hip_switch.png',
+  'Farmers Carry|dumbbell': '/exercise-images/dumbbell/dumbbell_farmer_carry.png',
+  "Farmer's Carry|dumbbell": '/exercise-images/dumbbell/dumbbell_farmer_carry.png',
 };
 
 /** The three fixed equipment-type logos — NOT exercise-specific, just one
