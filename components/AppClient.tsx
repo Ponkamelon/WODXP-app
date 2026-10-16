@@ -408,6 +408,7 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Shrugs|dumbbell': '/exercise-images/dumbbell/shrugs.png',
   'Skull Crusher|dumbbell': '/exercise-images/dumbbell/skull_crusher.png',
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
+  'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   'Thruster|dumbbell': '/exercise-images/dumbbell/thruster__dumbbell.png',
   'Triceps Kickback|dumbbell': '/exercise-images/dumbbell/triceps_kickback.png',
   'Bear Plank|bodyweight': '/exercise-images/bodyweight/bear_plank.png',
