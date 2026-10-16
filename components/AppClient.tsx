@@ -410,6 +410,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 53 additions:
+  'Crow/Frog Stand|bodyweight': '/exercise-images/bodyweight/crow_frog_stand.png',
+  'Deep Lunge Reach|bodyweight': '/exercise-images/bodyweight/deep_lunge_reach.png',
+  'Burpee + Deadlift|dumbbell': '/exercise-images/dumbbell/burpee_deadlift.png',
+  'Dumbbell Burpee|dumbbell': '/exercise-images/dumbbell/dumbbell_burpee.png',
+  'Dumbbell Clean|dumbbell': '/exercise-images/dumbbell/dumbbell_clean.png',
+  'Bottom-Up Half-Kneeling Hold|kettlebell': '/exercise-images/kettlebell/bottom_up_half_kneeling_hold.png',
+  'Clean + Press|kettlebell': '/exercise-images/kettlebell/clean_press.png',
+  'Clean to Squat|kettlebell': '/exercise-images/kettlebell/clean_to_squat.png',
+  'Double Front Squat|kettlebell': '/exercise-images/kettlebell/double_front_squat.png',
+  'Double Kettlebell Swing|kettlebell': '/exercise-images/kettlebell/double_kettlebell_swing.png',
   // Batch 52 additions:
   '180-Degree Squat Jump|bodyweight': '/exercise-images/bodyweight/180_degree_squat_jump.png',
   'Beast to Kick-Through|bodyweight': '/exercise-images/bodyweight/beast_to_kick_through.png',
