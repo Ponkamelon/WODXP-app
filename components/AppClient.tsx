@@ -410,6 +410,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 52 additions:
+  '180-Degree Squat Jump|bodyweight': '/exercise-images/bodyweight/180_degree_squat_jump.png',
+  'Beast to Kick-Through|bodyweight': '/exercise-images/bodyweight/beast_to_kick_through.png',
+  'Standing Hip Airplane Preparation|bodyweight': '/exercise-images/bodyweight/standing_hip_airplane_preparation.png',
+  'Alternating Dumbbell Clean|dumbbell': '/exercise-images/dumbbell/alternating_dumbbell_clean.png',
+  'Alternating Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/alternating_dumbbell_snatch.png',
+  'Dumbbell Chest-Supported Row|dumbbell': '/exercise-images/dumbbell/dumbbell_chest_supported_row.png',
+  'Dumbbell Single-Leg Deadlift Supported|dumbbell': '/exercise-images/dumbbell/dumbbell_single_leg_deadlift_supported.png',
+  'Alternating Snatch|kettlebell': '/exercise-images/kettlebell/alternating_snatch.png',
+  'Bottom-Up Carry|kettlebell': '/exercise-images/kettlebell/bottom_up_carry.png',
+  'KB Single-Leg Deadlift Supported|kettlebell': '/exercise-images/kettlebell/kb_single_leg_deadlift_supported.png',
   // Batch 51 additions:
   'Lunge with Rotation|bodyweight': '/exercise-images/bodyweight/lunge_with_rotation.png',
   'Shin Box Rotation|bodyweight': '/exercise-images/bodyweight/shin_box_rotation.png',
