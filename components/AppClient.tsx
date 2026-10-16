@@ -410,6 +410,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 54 additions:
+  'Fast Mountain Climbers|bodyweight': '/exercise-images/bodyweight/fast_mountain_climbers.png',
+  'Hindu Push-Up|bodyweight': '/exercise-images/bodyweight/hindu_push_up.png',
+  'Hip Airplane|bodyweight': '/exercise-images/bodyweight/hip_airplane.png',
+  'Dumbbell Incline Fly|dumbbell': '/exercise-images/dumbbell/dumbbell_incline_fly.png',
+  'Dumbbell Single-Arm Shoulder Press|dumbbell': '/exercise-images/dumbbell/dumbbell_single_arm_shoulder_press.png',
+  'Dumbbell Suitcase March|dumbbell': '/exercise-images/dumbbell/dumbbell_suitcase_march.png',
+  'Clean + Front Squat + Press|kettlebell': '/exercise-images/kettlebell/clean_front_squat_press.png',
+  'Double Clean + Press|kettlebell': '/exercise-images/kettlebell/double_clean_press.png',
+  'Double Front-Rack Lunge|kettlebell': '/exercise-images/kettlebell/double_front_rack_lunge.png',
+  'Double Strict Press|kettlebell': '/exercise-images/kettlebell/double_strict_press.png',
   // Batch 53 additions:
   'Crow/Frog Stand|bodyweight': '/exercise-images/bodyweight/crow_frog_stand.png',
   'Deep Lunge Reach|bodyweight': '/exercise-images/bodyweight/deep_lunge_reach.png',
