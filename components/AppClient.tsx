@@ -410,6 +410,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 51 additions:
+  'Lunge with Rotation|bodyweight': '/exercise-images/bodyweight/lunge_with_rotation.png',
+  'Shin Box Rotation|bodyweight': '/exercise-images/bodyweight/shin_box_rotation.png',
+  'Jumping Lunges Preparation|bodyweight': '/exercise-images/bodyweight/jumping_lunges_preparation.png',
+  'Dumbbell Incline Row|dumbbell': '/exercise-images/dumbbell/dumbbell_incline_row.png',
+  'Dumbbell Plank Drag|dumbbell': '/exercise-images/dumbbell/dumbbell_plank_drag.png',
+  'Dumbbell Push Press|dumbbell': '/exercise-images/dumbbell/dumbbell_push_press.png',
+  'Dumbbell Bear-Hug Squat|dumbbell': '/exercise-images/dumbbell/dumbbell_bear_hug_squat.png',
+  'KB Dead Bug Hold|kettlebell': '/exercise-images/kettlebell/kb_dead_bug_hold.png',
+  'KB Goblet Cossack Squat|kettlebell': '/exercise-images/kettlebell/kb_goblet_cossack_squat.png',
+  'KB Clean to Front Rack|kettlebell': '/exercise-images/kettlebell/kb_clean_to_front_rack.png',
   'KB Goblet Good Morning|kettlebell': '/exercise-images/kettlebell/kb_goblet_good_morning.png',
   'KB Kneeling Press|kettlebell': '/exercise-images/kettlebell/kb_kneeling_press.png',
   'KB Single-Arm Swing|kettlebell': '/exercise-images/kettlebell/kb_single_arm_swing.png',
