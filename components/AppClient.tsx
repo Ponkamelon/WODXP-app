@@ -410,6 +410,28 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 54 additions:
+  'Fast Mountain Climbers|bodyweight': '/exercise-images/bodyweight/fast_mountain_climbers.png',
+  'Hindu Push-Up|bodyweight': '/exercise-images/bodyweight/hindu_push_up.png',
+  'Hip Airplane|bodyweight': '/exercise-images/bodyweight/hip_airplane.png',
+  'Dumbbell Incline Fly|dumbbell': '/exercise-images/dumbbell/dumbbell_incline_fly.png',
+  'Dumbbell Single-Arm Shoulder Press|dumbbell': '/exercise-images/dumbbell/dumbbell_single_arm_shoulder_press.png',
+  'Dumbbell Suitcase March|dumbbell': '/exercise-images/dumbbell/dumbbell_suitcase_march.png',
+  'Clean + Front Squat + Press|kettlebell': '/exercise-images/kettlebell/clean_front_squat_press.png',
+  'Double Clean + Press|kettlebell': '/exercise-images/kettlebell/double_clean_press.png',
+  'Double Front-Rack Lunge|kettlebell': '/exercise-images/kettlebell/double_front_rack_lunge.png',
+  'Double Strict Press|kettlebell': '/exercise-images/kettlebell/double_strict_press.png',
+  // Batch 53 additions:
+  'Crow/Frog Stand|bodyweight': '/exercise-images/bodyweight/crow_frog_stand.png',
+  'Deep Lunge Reach|bodyweight': '/exercise-images/bodyweight/deep_lunge_reach.png',
+  'Burpee + Deadlift|dumbbell': '/exercise-images/dumbbell/burpee_deadlift.png',
+  'Dumbbell Burpee|dumbbell': '/exercise-images/dumbbell/dumbbell_burpee.png',
+  'Dumbbell Clean|dumbbell': '/exercise-images/dumbbell/dumbbell_clean.png',
+  'Bottom-Up Half-Kneeling Hold|kettlebell': '/exercise-images/kettlebell/bottom_up_half_kneeling_hold.png',
+  'Clean + Press|kettlebell': '/exercise-images/kettlebell/clean_press.png',
+  'Clean to Squat|kettlebell': '/exercise-images/kettlebell/clean_to_squat.png',
+  'Double Front Squat|kettlebell': '/exercise-images/kettlebell/double_front_squat.png',
+  'Double Kettlebell Swing|kettlebell': '/exercise-images/kettlebell/double_kettlebell_swing.png',
   // Batch 52 additions:
   '180-Degree Squat Jump|bodyweight': '/exercise-images/bodyweight/180_degree_squat_jump.png',
   'Beast to Kick-Through|bodyweight': '/exercise-images/bodyweight/beast_to_kick_through.png',
