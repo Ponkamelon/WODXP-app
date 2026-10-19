@@ -410,6 +410,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 56 additions:
+  'Kettlebell Burpee + Deadlift|kettlebell': '/exercise-images/kettlebell/kettlebell_burpee_deadlift.png',
+  'Light Kettlebell Windmill|kettlebell': '/exercise-images/kettlebell/light_kettlebell_windmill.png',
+  'Renegade Row|kettlebell': '/exercise-images/kettlebell/renegade_row.png',
+  'Single-Arm Floor Press + Bridge|dumbbell': '/exercise-images/dumbbell/single_arm_floor_press_bridge.png',
+  'Single-Leg RDL + Row|kettlebell': '/exercise-images/kettlebell/single_leg_rdl_row.png',
+  'Step-Up + Press|dumbbell': '/exercise-images/dumbbell/step_up_press.png',
+  'Sumo Deadlift High Pull|dumbbell': '/exercise-images/dumbbell/sumo_deadlift_high_pull.png',
+  'Turkish Get-Up to Hand|dumbbell': '/exercise-images/dumbbell/turkish_get_up_to_hand.png',
+  'Wall Handstand Hold|bodyweight': '/exercise-images/bodyweight/wall_handstand_hold.png',
+  'Weighted Cossack Squat|dumbbell': '/exercise-images/dumbbell/weighted_cossack_squat.png',
   // Batch 55 additions:
   'Kneeling Backbend|bodyweight': '/exercise-images/bodyweight/kneeling_backbend.png',
   'Pancake Forward Fold|bodyweight': '/exercise-images/bodyweight/pancake_forward_fold.png',
