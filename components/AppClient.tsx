@@ -410,6 +410,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 55 additions:
+  'Kneeling Backbend|bodyweight': '/exercise-images/bodyweight/kneeling_backbend.png',
+  'Pancake Forward Fold|bodyweight': '/exercise-images/bodyweight/pancake_forward_fold.png',
+  'Side Lunge Stretch|bodyweight': '/exercise-images/bodyweight/side_lunge_stretch.png',
+  'Dumbbell Windmill|dumbbell': '/exercise-images/dumbbell/dumbbell_windmill.png',
+  'Get-Up Stability Position|dumbbell': '/exercise-images/dumbbell/get_up_stability_position.png',
+  'Hang Clean|dumbbell': '/exercise-images/dumbbell/hang_clean.png',
+  'Clean + Push Press|kettlebell': '/exercise-images/kettlebell/clean_push_press.png',
+  'Double Kettlebell Clean|kettlebell': '/exercise-images/kettlebell/double_kettlebell_clean.png',
+  'Half Snatch|kettlebell': '/exercise-images/kettlebell/half_snatch.png',
+  'KB Suitcase Reverse Lunge|kettlebell': '/exercise-images/kettlebell/kb_suitcase_reverse_lunge.png',
   // Batch 54 additions:
   'Fast Mountain Climbers|bodyweight': '/exercise-images/bodyweight/fast_mountain_climbers.png',
   'Hindu Push-Up|bodyweight': '/exercise-images/bodyweight/hindu_push_up.png',
