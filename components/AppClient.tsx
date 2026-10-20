@@ -410,6 +410,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 59 additions:
+  'Dumbbell Front Rack Step-Up|dumbbell': '/exercise-images/dumbbell/dumbbell_front_rack_step_up.png',
+  'Dumbbell Plank Pull-Through|dumbbell': '/exercise-images/dumbbell/dumbbell_plank_pull_through.png',
+  'KB Front Rack Split Squat|kettlebell': '/exercise-images/kettlebell/kb_front_rack_split_squat.png',
+  'KB Plank Pull-Through|kettlebell': '/exercise-images/kettlebell/kb_plank_pull_through.png',
+  'KB Swing to Squat|kettlebell': '/exercise-images/kettlebell/kb_swing_to_squat.png',
+  'Mountain Climber Cross-Body|bodyweight': '/exercise-images/bodyweight/mountain_climber_cross_body.png',
+  'Squat Jump + Step Back|bodyweight': '/exercise-images/bodyweight/squat_jump_step_back.png',
+  'Burpee + Squat|bodyweight': '/exercise-images/bodyweight/burpee_squat.png',
+  'Cossack Squat with Reach|bodyweight': '/exercise-images/bodyweight/cossack_squat_with_reach.png',
+  "Dumbbell Waiter's Carry|dumbbell": '/exercise-images/dumbbell/dumbbell_waiters_carry.png',
   // Batch 58 additions:
   'Dumbbell Renegade Row Elevated|dumbbell': '/exercise-images/dumbbell/dumbbell_renegade_row_elevated.png',
   'Dumbbell Sit-Up Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_sit_up_hold.png',
