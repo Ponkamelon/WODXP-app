@@ -410,6 +410,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 57 additions:
+  'Z-Press|dumbbell': '/exercise-images/dumbbell/z_press.png',
+  'Bear Crawl Forward and Back|bodyweight': '/exercise-images/bodyweight/bear_crawl_forward_and_back.png',
+  'Crab Reach Rotation|bodyweight': '/exercise-images/bodyweight/crab_reach_rotation.png',
+  'Dumbbell Neutral-Grip Press|dumbbell': '/exercise-images/dumbbell/dumbbell_neutral_grip_press.png',
+  'Dumbbell Overhead March|dumbbell': '/exercise-images/dumbbell/dumbbell_overhead_march.png',
+  'Dumbbell Rear Delt Row|dumbbell': '/exercise-images/dumbbell/dumbbell_rear_delt_row.png',
+  'KB Half-Kneeling Windmill|kettlebell': '/exercise-images/kettlebell/kb_half_kneeling_windmill.png',
+  'KB Renegade Row Elevated|kettlebell': '/exercise-images/kettlebell/kb_renegade_row_elevated.png',
+  'Burpee + Knee Drive|bodyweight': '/exercise-images/bodyweight/burpee_knee_drive.png',
+  'Dumbbell Front Rack Reverse Lunge|dumbbell': '/exercise-images/dumbbell/dumbbell_front_rack_reverse_lunge.png',
   // Batch 56 additions:
   'Kettlebell Burpee + Deadlift|kettlebell': '/exercise-images/kettlebell/kettlebell_burpee_deadlift.png',
   'Light Kettlebell Windmill|kettlebell': '/exercise-images/kettlebell/light_kettlebell_windmill.png',
