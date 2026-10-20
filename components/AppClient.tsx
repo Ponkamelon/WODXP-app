@@ -410,6 +410,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 58 additions:
+  'Dumbbell Renegade Row Elevated|dumbbell': '/exercise-images/dumbbell/dumbbell_renegade_row_elevated.png',
+  'Dumbbell Sit-Up Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_sit_up_hold.png',
+  'KB Bear-Hug Carry|kettlebell': '/exercise-images/kettlebell/kb_bear_hug_carry.png',
+  'KB Goblet Curtsy Lunge|kettlebell': '/exercise-images/kettlebell/kb_goblet_curtsy_lunge.png',
+  'KB Sit-Up Hold|kettlebell': '/exercise-images/kettlebell/kb_sit_up_hold.png',
+  'Kneeling Backbend Preparation|bodyweight': '/exercise-images/bodyweight/kneeling_backbend_preparation.png',
+  'Pancake Reach|bodyweight': '/exercise-images/bodyweight/pancake_reach.png',
+  'Skater Jump to Balance|bodyweight': '/exercise-images/bodyweight/skater_jump_to_balance.png',
+  'Deep Squat to Stand|bodyweight': '/exercise-images/bodyweight/deep_squat_to_stand.png',
+  'Dumbbell Alternating Floor Press|dumbbell': '/exercise-images/dumbbell/dumbbell_alternating_floor_press.png',
   // Batch 57 additions:
   'Z-Press|dumbbell': '/exercise-images/dumbbell/z_press.png',
   'Bear Crawl Forward and Back|bodyweight': '/exercise-images/bodyweight/bear_crawl_forward_and_back.png',
