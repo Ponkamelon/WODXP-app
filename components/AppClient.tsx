@@ -410,6 +410,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 62 additions:
+  'Crab Reach to Sit-Through|bodyweight': '/exercise-images/bodyweight/crab_reach_to_sit_through.png',
+  'Deep Lunge to Hamstring Shift|bodyweight': '/exercise-images/bodyweight/deep_lunge_to_hamstring_shift.png',
+  'Dumbbell Clean to Front Squat|dumbbell': '/exercise-images/dumbbell/dumbbell_clean_to_front_squat.png',
+  'Dumbbell Half-Kneeling Halo|dumbbell': '/exercise-images/dumbbell/dumbbell_half_kneeling_halo.png',
+  'Dumbbell Renegade Row Elevated Feet|dumbbell': '/exercise-images/dumbbell/dumbbell_renegade_row_elevated_feet.png',
+  'Dumbbell Single-Leg RDL to Knee Drive|dumbbell': '/exercise-images/dumbbell/dumbbell_single_leg_rdl_to_knee_drive.png',
+  'KB Push-Up to Bell Drag|kettlebell': '/exercise-images/kettlebell/kb_push_up_to_bell_drag.png',
+  'KB Turkish Get-Up to Kneeling|kettlebell': '/exercise-images/kettlebell/kb_turkish_get_up_to_kneeling.png',
+  'Skater Jump + Knee Drive|bodyweight': '/exercise-images/bodyweight/skater_jump_knee_drive.png',
+  'Broad Jump + Backpedal|bodyweight': '/exercise-images/bodyweight/broad_jump_backpedal.png',
   // Batch 61 additions:
   'Hip Airplane with Reach|bodyweight': '/exercise-images/bodyweight/hip_airplane_with_reach.png',
   'Jumping Lunge + Squat|bodyweight': '/exercise-images/bodyweight/jumping_lunge_squat.png',
