@@ -410,6 +410,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 60 additions:
+  'Dumbbell Goblet Cossack Squat|dumbbell': '/exercise-images/dumbbell/dumbbell_goblet_cossack_squat.png',
+  'Dumbbell Push-Up on Dumbbells|dumbbell': '/exercise-images/dumbbell/dumbbell_push_up_on_dumbbells.png',
+  'Jumping Jack + Mountain Climber|bodyweight': '/exercise-images/bodyweight/jumping_jack_mountain_climber.png',
+  'KB Clean to Reverse Lunge|kettlebell': '/exercise-images/kettlebell/kb_clean_to_reverse_lunge.png',
+  'KB Double Farmer Carry|kettlebell': '/exercise-images/kettlebell/kb_double_farmer_carry.png',
+  "World's Greatest Stretch Flow|bodyweight": '/exercise-images/bodyweight/worlds_greatest_stretch_flow.png',
+  'Burpee + Tuck Preparation|bodyweight': '/exercise-images/bodyweight/burpee_tuck_preparation.png',
+  'Deep Squat to Rotation Flow|bodyweight': '/exercise-images/bodyweight/deep_squat_to_rotation_flow.png',
+  'Dumbbell Single-Leg RDL to Row|dumbbell': '/exercise-images/dumbbell/dumbbell_single_leg_rdl_to_row.png',
+  'KB Snatch Preparation|kettlebell': '/exercise-images/kettlebell/kb_snatch_preparation.png',
   // Batch 59 additions:
   'Dumbbell Front Rack Step-Up|dumbbell': '/exercise-images/dumbbell/dumbbell_front_rack_step_up.png',
   'Dumbbell Plank Pull-Through|dumbbell': '/exercise-images/dumbbell/dumbbell_plank_pull_through.png',
