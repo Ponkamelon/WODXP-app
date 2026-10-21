@@ -410,6 +410,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 61 additions:
+  'Hip Airplane with Reach|bodyweight': '/exercise-images/bodyweight/hip_airplane_with_reach.png',
+  'Jumping Lunge + Squat|bodyweight': '/exercise-images/bodyweight/jumping_lunge_squat.png',
+  'KB Front Rack Walking Lunge|kettlebell': '/exercise-images/kettlebell/kb_front_rack_walking_lunge.png',
+  'Bear Crawl Shoulder Tap|bodyweight': '/exercise-images/bodyweight/bear_crawl_shoulder_tap.png',
+  'Cossack Squat to Stand|bodyweight': '/exercise-images/bodyweight/cossack_squat_to_stand.png',
+  'Dumbbell Push-Up to Drag|dumbbell': '/exercise-images/dumbbell/dumbbell_push_up_to_drag.png',
+  'Dumbbell Walking Lunge to Curl|dumbbell': '/exercise-images/dumbbell/dumbbell_walking_lunge_to_curl.png',
+  'KB Offset Goblet Squat|kettlebell': '/exercise-images/kettlebell/kb_offset_goblet_squat.png',
+  'KB Turkish Get-Up to Hip Lift|kettlebell': '/exercise-images/kettlebell/kb_turkish_get_up_to_hip_lift.png',
+  'Shin Box Get-Up without Hands|bodyweight': '/exercise-images/bodyweight/shin_box_get_up_without_hands.png',
   // Batch 60 additions:
   'Dumbbell Goblet Cossack Squat|dumbbell': '/exercise-images/dumbbell/dumbbell_goblet_cossack_squat.png',
   'Dumbbell Push-Up on Dumbbells|dumbbell': '/exercise-images/dumbbell/dumbbell_push_up_on_dumbbells.png',
