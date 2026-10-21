@@ -410,6 +410,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 63 additions:
+  'Burpee Lateral Step|bodyweight': '/exercise-images/bodyweight/burpee_lateral_step.png',
+  'Cossack Squat Flow|bodyweight': '/exercise-images/bodyweight/cossack_squat_flow.png',
+  'Dumbbell Front Rack Walking Lunge|dumbbell': '/exercise-images/dumbbell/dumbbell_front_rack_walking_lunge.png',
+  'Dumbbell Push-Up to Row|dumbbell': '/exercise-images/dumbbell/dumbbell_push_up_to_row.png',
+  'Dumbbell Windmill Preparation|dumbbell': '/exercise-images/dumbbell/dumbbell_windmill_preparation.png',
+  'Hip Airplane to Knee Drive|bodyweight': '/exercise-images/bodyweight/hip_airplane_to_knee_drive.png',
+  'KB Clean and Push Press|kettlebell': '/exercise-images/kettlebell/kb_clean_and_push_press.png',
+  'KB Rack Carry with March|kettlebell': '/exercise-images/kettlebell/kb_rack_carry_with_march.png',
+  'KB Single-Leg RDL to Row|kettlebell': '/exercise-images/kettlebell/kb_single_leg_rdl_to_row.png',
+  'KB Windmill Preparation|kettlebell': '/exercise-images/kettlebell/kb_windmill_preparation.png',
   // Batch 62 additions:
   'Crab Reach to Sit-Through|bodyweight': '/exercise-images/bodyweight/crab_reach_to_sit_through.png',
   'Deep Lunge to Hamstring Shift|bodyweight': '/exercise-images/bodyweight/deep_lunge_to_hamstring_shift.png',
