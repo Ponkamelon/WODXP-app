@@ -410,6 +410,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 65 additions:
+  'Burpee + Tuck Jump|bodyweight': '/exercise-images/bodyweight/burpee_tuck_jump.png',
+  'Dumbbell Bear Crawl Drag|dumbbell': '/exercise-images/dumbbell/dumbbell_bear_crawl_drag.png',
+  'Dumbbell Clean and Push Press|dumbbell': '/exercise-images/dumbbell/dumbbell_clean_and_push_press.png',
+  'Dumbbell Lateral Lunge to Curl|dumbbell': '/exercise-images/dumbbell/dumbbell_lateral_lunge_to_curl.png',
+  'Dumbbell Pistol Squat|dumbbell': '/exercise-images/dumbbell/dumbbell_pistol_squat.png',
+  'Hip Airplane with Rotation|bodyweight': '/exercise-images/bodyweight/hip_airplane_with_rotation.png',
+  'KB Swing Lunge Transition|kettlebell': '/exercise-images/kettlebell/kb_swing_lunge_transition.png',
+  'KB Turkish Get-Down|kettlebell': '/exercise-images/kettlebell/kb_turkish_get_down.png',
+  'Kettlebell Pistol Squat|kettlebell': '/exercise-images/kettlebell/kettlebell_pistol_squat.png',
+  'Squat Jump to Lunge|bodyweight': '/exercise-images/bodyweight/squat_jump_to_lunge.png',
   // Batch 64 additions:
   'Burpee Broad Jump|bodyweight': '/exercise-images/bodyweight/burpee_broad_jump.png',
   'Deep Squat to Cossack|bodyweight': '/exercise-images/bodyweight/deep_squat_to_cossack.png',
