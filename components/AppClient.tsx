@@ -410,6 +410,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 64 additions:
+  'Burpee Broad Jump|bodyweight': '/exercise-images/bodyweight/burpee_broad_jump.png',
+  'Deep Squat to Cossack|bodyweight': '/exercise-images/bodyweight/deep_squat_to_cossack.png',
+  'Dumbbell Overhead Reverse Lunge|dumbbell': '/exercise-images/dumbbell/dumbbell_overhead_reverse_lunge.png',
+  'Dumbbell Renegade Row Alternating|dumbbell': '/exercise-images/dumbbell/dumbbell_renegade_row_alternating.png',
+  'Dumbbell Single-Arm Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_single_arm_snatch.png',
+  'Inchworm Push-Up Flow|bodyweight': '/exercise-images/bodyweight/inchworm_push_up_flow.png',
+  'KB Overhead Reverse Lunge|kettlebell': '/exercise-images/kettlebell/kb_overhead_reverse_lunge.png',
+  'Mountain Climber Sprint|bodyweight': '/exercise-images/bodyweight/mountain_climber_sprint.png',
+  'Bear Crawl to Burpee|bodyweight': '/exercise-images/bodyweight/bear_crawl_to_burpee.png',
+  'Turkish Get-Up|dumbbell': '/exercise-images/dumbbell/turkish_get_up.png',
   // Batch 63 additions:
   'Burpee Lateral Step|bodyweight': '/exercise-images/bodyweight/burpee_lateral_step.png',
   'Cossack Squat Flow|bodyweight': '/exercise-images/bodyweight/cossack_squat_flow.png',
