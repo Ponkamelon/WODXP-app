@@ -410,6 +410,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 67 additions:
+  'Burpee 180|bodyweight': '/exercise-images/bodyweight/burpee_180.png',
+  'Cossack Squat to Knee Drive|bodyweight': '/exercise-images/bodyweight/cossack_squat_to_knee_drive.png',
+  'Crab Reach Flow|bodyweight': '/exercise-images/bodyweight/crab_reach_flow.png',
+  'Dumbbell Clean Thruster|dumbbell': '/exercise-images/dumbbell/dumbbell_clean_thruster.png',
+  'Dumbbell Renegade Row to Push-Up|dumbbell': '/exercise-images/dumbbell/dumbbell_renegade_row_to_push_up.png',
+  'Dumbbell Reverse Lunge to Press|dumbbell': '/exercise-images/dumbbell/dumbbell_reverse_lunge_to_press.png',
+  'KB Clean Thruster|kettlebell': '/exercise-images/kettlebell/kb_clean_thruster.png',
+  'KB Lateral Lunge to Row|kettlebell': '/exercise-images/kettlebell/kb_lateral_lunge_to_row.png',
+  'KB Seated Press with Legs Straight|kettlebell': '/exercise-images/kettlebell/kb_seated_press_with_legs_straight.png',
+  'Skater Jump Continuous|bodyweight': '/exercise-images/bodyweight/skater_jump_continuous.png',
   // Batch 66b additions:
   'Nordic Hamstring Curl|bodyweight': '/exercise-images/bodyweight/nordic_hamstring_curl.png',
   // Batch 66 additions:
