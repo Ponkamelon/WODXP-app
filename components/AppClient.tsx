@@ -410,6 +410,8 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 66b additions:
+  'Nordic Hamstring Curl|bodyweight': '/exercise-images/bodyweight/nordic_hamstring_curl.png',
   // Batch 66 additions:
   'Bridge Progression|bodyweight': '/exercise-images/bodyweight/bridge_progression.png',
   'Deadlift-Clean-Squat-Press Complex|dumbbell': '/exercise-images/dumbbell/deadlift_clean_squat_press_complex.png',
