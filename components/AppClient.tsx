@@ -410,6 +410,16 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 66 additions:
+  'Bridge Progression|bodyweight': '/exercise-images/bodyweight/bridge_progression.png',
+  'Deadlift-Clean-Squat-Press Complex|dumbbell': '/exercise-images/dumbbell/deadlift_clean_squat_press_complex.png',
+  'L-Sit|bodyweight': '/exercise-images/bodyweight/l_sit.png',
+  'Long Cycle Clean & Jerk|kettlebell': '/exercise-images/kettlebell/long_cycle_clean_jerk.png',
+  'Overhead Cossack Squat|kettlebell': '/exercise-images/kettlebell/overhead_cossack_squat.png',
+  'Renegade Row + Push-Up|dumbbell': '/exercise-images/dumbbell/renegade_row_push_up.png',
+  'Shrimp Squat|bodyweight': '/exercise-images/bodyweight/shrimp_squat.png',
+  'Single-Arm Overhead Squat|dumbbell': '/exercise-images/dumbbell/single_arm_overhead_squat.png',
+  'Swing-Clean-Squat-Press Complex|kettlebell': '/exercise-images/kettlebell/swing_clean_squat_press_complex.png',
   // Batch 65 additions:
   'Burpee + Tuck Jump|bodyweight': '/exercise-images/bodyweight/burpee_tuck_jump.png',
   'Dumbbell Bear Crawl Drag|dumbbell': '/exercise-images/dumbbell/dumbbell_bear_crawl_drag.png',
