@@ -410,6 +410,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 68 additions:
+  'Deep Squat to Forward Fold|bodyweight': '/exercise-images/bodyweight/deep_squat_to_forward_fold.png',
+  'Dumbbell Devil Press Preparation|dumbbell': '/exercise-images/dumbbell/dumbbell_devil_press_preparation.png',
+  'Dumbbell Front Rack Lateral Lunge|dumbbell': '/exercise-images/dumbbell/dumbbell_front_rack_lateral_lunge.png',
+  'Dumbbell Plank Row|dumbbell': '/exercise-images/dumbbell/dumbbell_plank_row.png',
+  'Dumbbell Turkish Get-Up to Kneeling|dumbbell': '/exercise-images/dumbbell/dumbbell_turkish_get_up_to_kneeling.png',
+  'KB Front Rack Lateral Lunge|kettlebell': '/exercise-images/kettlebell/kb_front_rack_lateral_lunge.png',
+  'KB Half-Kneeling Bottom-Up Press|kettlebell': '/exercise-images/kettlebell/kb_half_kneeling_bottom_up_press.png',
+  'KB Single-Arm Bear Crawl Drag|kettlebell': '/exercise-images/kettlebell/kb_single_arm_bear_crawl_drag.png',
+  'Mountain Climber to Frogger|bodyweight': '/exercise-images/bodyweight/mountain_climber_to_frogger.png',
+  'Tuck Jump to Squat|bodyweight': '/exercise-images/bodyweight/tuck_jump_to_squat.png',
   // Batch 67 additions:
   'Burpee 180|bodyweight': '/exercise-images/bodyweight/burpee_180.png',
   'Cossack Squat to Knee Drive|bodyweight': '/exercise-images/bodyweight/cossack_squat_to_knee_drive.png',
