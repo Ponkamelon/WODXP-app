@@ -410,6 +410,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 69 additions:
+  'Shin Box to Lunge|bodyweight': '/exercise-images/bodyweight/shin_box_to_lunge.png',
+  'KB Overhead March|kettlebell': '/exercise-images/kettlebell/kb_overhead_march.png',
+  'Broad Jump to Burpee|bodyweight': '/exercise-images/bodyweight/broad_jump_to_burpee.png',
+  'Burpee + High Knees|bodyweight': '/exercise-images/bodyweight/burpee_high_knees.png',
+  'Cossack to Deep Squat Flow|bodyweight': '/exercise-images/bodyweight/cossack_to_deep_squat_flow.png',
+  'Hip Airplane to Side Reach|bodyweight': '/exercise-images/bodyweight/hip_airplane_to_side_reach.png',
+  'Dumbbell Single-Leg RDL to Curl|dumbbell': '/exercise-images/dumbbell/dumbbell_single_leg_rdl_to_curl.png',
+  'KB Clean to Front Squat|kettlebell': '/exercise-images/kettlebell/kb_clean_to_front_squat.png',
+  'KB Single-Leg RDL to Knee Drive|kettlebell': '/exercise-images/kettlebell/kb_single_leg_rdl_to_knee_drive.png',
+  'KB Windmill to Side Bend|kettlebell': '/exercise-images/kettlebell/kb_windmill_to_side_bend.png',
   // Batch 68 additions:
   'Deep Squat to Forward Fold|bodyweight': '/exercise-images/bodyweight/deep_squat_to_forward_fold.png',
   'Dumbbell Devil Press Preparation|dumbbell': '/exercise-images/dumbbell/dumbbell_devil_press_preparation.png',
