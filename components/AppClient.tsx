@@ -410,6 +410,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 70 additions:
+  'Bear Crawl + Mountain Climbers|bodyweight': '/exercise-images/bodyweight/bear_crawl_mountain_climbers.png',
+  'Burpee + Tuck Jump + Squat|bodyweight': '/exercise-images/bodyweight/burpee_tuck_jump_squat.png',
+  'Deep Squat Mobility Flow|bodyweight': '/exercise-images/bodyweight/deep_squat_mobility_flow.png',
+  "World's Greatest Stretch Advanced Flow|bodyweight": '/exercise-images/bodyweight/worlds_greatest_stretch_advanced_flow.png',
+  'Dumbbell Front Rack Squat to Press|dumbbell': '/exercise-images/dumbbell/dumbbell_front_rack_squat_to_press.png',
+  'Dumbbell Snatch to Reverse Lunge|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch_to_reverse_lunge.png',
+  'Dumbbell Turkish Get-Up with Pause|dumbbell': '/exercise-images/dumbbell/dumbbell_turkish_get_up_with_pause.png',
+  'KB Double Deadlift|kettlebell': '/exercise-images/kettlebell/kb_double_deadlift.png',
+  'KB Snatch to Reverse Lunge|kettlebell': '/exercise-images/kettlebell/kb_snatch_to_reverse_lunge.png',
+  'KB Turkish Get-Up with Pause|kettlebell': '/exercise-images/kettlebell/kb_turkish_get_up_with_pause.png',
   // Batch 69 additions:
   'Shin Box to Lunge|bodyweight': '/exercise-images/bodyweight/shin_box_to_lunge.png',
   'KB Overhead March|kettlebell': '/exercise-images/kettlebell/kb_overhead_march.png',
