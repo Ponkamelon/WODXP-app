@@ -410,6 +410,16 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 71 additions:
+  'Burpee + Broad Jump Continuous|bodyweight': '/exercise-images/bodyweight/burpee_broad_jump_continuous.png',
+  'Cossack Squat with Overhead Reach|bodyweight': '/exercise-images/bodyweight/cossack_squat_with_overhead_reach.png',
+  'Double KB Goblet Squat|kettlebell': '/exercise-images/kettlebell/double_kb_goblet_squat.png',
+  'Double KB Romanian Deadlift|kettlebell': '/exercise-images/kettlebell/double_kb_romanian_deadlift.png',
+  'Dumbbell Clean Front Squat|dumbbell': '/exercise-images/dumbbell/dumbbell_clean_front_squat.png',
+  'Dumbbell Double Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_double_snatch.png',
+  'Dumbbell Overhead Walking Lunge|dumbbell': '/exercise-images/dumbbell/dumbbell_overhead_walking_lunge.png',
+  'Hip Airplane to Cossack Transition|bodyweight': '/exercise-images/bodyweight/hip_airplane_to_cossack_transition.png',
+  'Jumping Lunge + Tuck Jump|bodyweight': '/exercise-images/bodyweight/jumping_lunge_tuck_jump.png',
   // Batch 70 additions:
   'Bear Crawl + Mountain Climbers|bodyweight': '/exercise-images/bodyweight/bear_crawl_mountain_climbers.png',
   'Burpee + Tuck Jump + Squat|bodyweight': '/exercise-images/bodyweight/burpee_tuck_jump_squat.png',
