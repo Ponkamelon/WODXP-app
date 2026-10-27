@@ -1281,6 +1281,22 @@ function HomeScreen({ user, stats, onGenerate, onChallenge, onBoss, levelChallen
             <span className="text-sm" style={{ color: C.muted }}>Total XP</span>
             <span className="font-bold" style={{ color: C.xp, ...MO }}>{stats.xp_total.toLocaleString()}</span>
           </div>
+          {!progress.isComplete && (
+            <div className="mt-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm" style={{ color: C.muted }}>Left to next level</span>
+                <span className="font-bold" style={{ color: progress.isUnlocked ? C.xp : C.text, ...MO }}>
+                  {progress.isUnlocked ? `Lv ${progress.pendingLevel} unlocked` : `${Math.max(0, xpForLevel(progress.pendingLevel) - stats.xp_total).toLocaleString()} XP`}
+                </span>
+              </div>
+              <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full" style={{ backgroundColor: C.raised }}>
+                <div className="h-full rounded-full" style={{
+                  width: `${Math.round(Math.max(0, Math.min(1, (stats.xp_total - xpForLevel(stats.level)) / (xpForLevel(progress.pendingLevel) - xpForLevel(stats.level)))) * 100)}%`,
+                  backgroundColor: C.xp,
+                }} />
+              </div>
+            </div>
+          )}
           <div className="mt-2 flex items-center justify-between">
             <span className="text-sm" style={{ color: C.muted }}>Longest streak</span>
             <span className="font-bold" style={{ color: C.text, ...MO }}>{stats.longest_streak} days</span>
@@ -2291,9 +2307,17 @@ function WorkoutScreen({ exercises, userId, durationMinutes, onBack, onFinish }:
     Object.fromEntries(exercises.map((ex) => [ex.id, { weight: ex.default_weight_kg, reps: ex.default_reps, sets: ex.default_sets }]))
   );
   const [done, setDone] = useState<Set<string>>(new Set());
+  // Sets completed so far per exercise; an exercise is marked done once all its sets are logged.
+  const [setsDone, setSetsDone] = useState<Record<string, number>>({});
   const [saving, setSaving] = useState(false);
   const [viewing, setViewing] = useState<Exercise | null>(null);
   const allDone = done.size === exercises.length;
+  const markExerciseDone = (id: string) => setDone((p) => new Set(p).add(id));
+  const completeSet = (id: string, totalSets: number) => {
+    const next = (setsDone[id] ?? 0) + 1;
+    setSetsDone((p) => ({ ...p, [id]: next }));
+    if (next >= totalSets) markExerciseDone(id);
+  };
 
   // Live elapsed-time tracking, used only to detect an early quit (leaving
   // before 30% of the selected workout duration has passed) — separate
@@ -2399,12 +2423,12 @@ function WorkoutScreen({ exercises, userId, durationMinutes, onBack, onFinish }:
               <div className="grid grid-cols-3 gap-1 rounded-xl border px-1 py-3" style={{ borderColor: C.border }}>
                 <Stepper label="Weight" value={log.weight} onChange={(v) => setLogs((p) => ({ ...p, [ex.id]: { ...p[ex.id], weight: v } }))} step={1} unit="kg" />
                 <Stepper label="Reps" value={log.reps} onChange={(v) => setLogs((p) => ({ ...p, [ex.id]: { ...p[ex.id], reps: v } }))} step={1} unit="reps" min={1} />
-                <Stepper label="Sets" value={log.sets} onChange={(v) => setLogs((p) => ({ ...p, [ex.id]: { ...p[ex.id], sets: v } }))} step={1} unit="sets" min={1} />
+                <Stepper label="Sets" value={log.sets} onChange={(v) => { setLogs((p) => ({ ...p, [ex.id]: { ...p[ex.id], sets: v } })); if (!isDone && (setsDone[ex.id] ?? 0) >= v) markExerciseDone(ex.id); }} step={1} unit="sets" min={1} />
               </div>
-              <LedBorderButton onClick={() => setDone((p) => new Set(p).add(ex.id))} disabled={isDone} radius={12}
+              <LedBorderButton onClick={() => completeSet(ex.id, log.sets)} disabled={isDone} radius={12}
                 className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-3 font-bold"
                 style={{ backgroundColor: isDone ? C.raised : C.xp, color: isDone ? C.xp : '#04140A', ...SG }}>
-                {isDone ? (<><Check size={18} strokeWidth={3} /> Done</>) : 'Mark Complete'}
+                {isDone ? (<><Check size={18} strokeWidth={3} /> Done</>) : `Complete Set ${(setsDone[ex.id] ?? 0) + 1} of ${log.sets}`}
               </LedBorderButton>
             </motion.div>
           );
