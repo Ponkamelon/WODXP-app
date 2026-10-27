@@ -410,6 +410,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 73 additions:
+  'Bear Crawl Burpee Combination|bodyweight': '/exercise-images/bodyweight/bear_crawl_burpee_combination.png',
+  'Cossack Squat to Hip Airplane|bodyweight': '/exercise-images/bodyweight/cossack_squat_to_hip_airplane.png',
+  'Inchworm to Deep Lunge Flow|bodyweight': '/exercise-images/bodyweight/inchworm_to_deep_lunge_flow.png',
+  'Double KB Clean|kettlebell': '/exercise-images/kettlebell/double_kb_clean.png',
+  'Double KB Reverse Lunge|kettlebell': '/exercise-images/kettlebell/double_kb_reverse_lunge.png',
+  'KB Overhead Windmill|kettlebell': '/exercise-images/kettlebell/kb_overhead_windmill.png',
+  'Dumbbell Bulgarian Split Squat to Curl|dumbbell': '/exercise-images/dumbbell/dumbbell_bulgarian_split_squat_to_curl.png',
+  'Dumbbell Overhead Step-Up|dumbbell': '/exercise-images/dumbbell/dumbbell_overhead_step_up.png',
+  'Dumbbell Push Jerk|dumbbell': '/exercise-images/dumbbell/dumbbell_push_jerk.png',
+  'Dumbbell Renegade Row to Rotation|dumbbell': '/exercise-images/dumbbell/dumbbell_renegade_row_to_rotation.png',
   // Batch 72 additions:
   'Burpee + 180 Jump|bodyweight': '/exercise-images/bodyweight/burpee_180_jump.png',
   'Deep Squat to Crab Transition|bodyweight': '/exercise-images/bodyweight/deep_squat_to_crab_transition.png',
