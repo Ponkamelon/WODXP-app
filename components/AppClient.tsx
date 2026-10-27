@@ -410,6 +410,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 72 additions:
+  'Burpee + 180 Jump|bodyweight': '/exercise-images/bodyweight/burpee_180_jump.png',
+  'Deep Squat to Crab Transition|bodyweight': '/exercise-images/bodyweight/deep_squat_to_crab_transition.png',
+  'Double KB Bent-Over Row|kettlebell': '/exercise-images/kettlebell/double_kb_bent_over_row.png',
+  'Double KB Deadlift High Pull|kettlebell': '/exercise-images/kettlebell/double_kb_deadlift_high_pull.png',
+  'Double KB Front Squat|kettlebell': '/exercise-images/kettlebell/double_kb_front_squat.png',
+  'Dumbbell Clean Reverse Lunge|dumbbell': '/exercise-images/dumbbell/dumbbell_clean_reverse_lunge.png',
+  'Dumbbell Hang Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_hang_snatch.png',
+  'Dumbbell Push-Up Renegade Row|dumbbell': '/exercise-images/dumbbell/dumbbell_push_up_renegade_row.png',
+  'Dumbbell Turkish Get-Up to Lunge|dumbbell': '/exercise-images/dumbbell/dumbbell_turkish_get_up_to_lunge.png',
+  'Skater Jump + Burpee|bodyweight': '/exercise-images/bodyweight/skater_jump_burpee.png',
   // Batch 71 additions:
   'Burpee + Broad Jump Continuous|bodyweight': '/exercise-images/bodyweight/burpee_broad_jump_continuous.png',
   'Cossack Squat with Overhead Reach|bodyweight': '/exercise-images/bodyweight/cossack_squat_with_overhead_reach.png',
