@@ -410,6 +410,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 74 additions:
+  'Shin Box Get-Up to Balance|bodyweight': '/exercise-images/bodyweight/shin_box_get_up_to_balance.png',
+  'Double KB Gorilla Row|kettlebell': '/exercise-images/kettlebell/double_kb_gorilla_row.png',
+  'Dumbbell Clean and Jerk|dumbbell': '/exercise-images/dumbbell/dumbbell_clean_and_jerk.png',
+  'Burpee + Jumping Lunge|bodyweight': '/exercise-images/bodyweight/burpee_jumping_lunge.png',
+  'Double KB Strict Press|kettlebell': '/exercise-images/kettlebell/double_kb_strict_press.png',
+  'Dumbbell Windmill to Press|dumbbell': '/exercise-images/dumbbell/dumbbell_windmill_to_press.png',
+  'Deep Squat to Shin Box|bodyweight': '/exercise-images/bodyweight/deep_squat_to_shin_box.png',
+  'Double KB Walking Lunge|kettlebell': '/exercise-images/kettlebell/double_kb_walking_lunge.png',
+  'Dumbbell Front Rack Bulgarian Split Squat|dumbbell': '/exercise-images/dumbbell/dumbbell_front_rack_bulgarian_split_squat.png',
+  'Dumbbell Bear Crawl Row|dumbbell': '/exercise-images/dumbbell/dumbbell_bear_crawl_row.png',
   // Batch 73 additions:
   'Bear Crawl Burpee Combination|bodyweight': '/exercise-images/bodyweight/bear_crawl_burpee_combination.png',
   'Cossack Squat to Hip Airplane|bodyweight': '/exercise-images/bodyweight/cossack_squat_to_hip_airplane.png',
