@@ -80,6 +80,39 @@ function xpDerivedLevel(xpTotal: number): number {
   return lvl;
 }
 
+// ─── Exercise records (times done + best weight / reps, derived from workout_exercises) ───
+interface ExerciseRecord {
+  times: number; maxWeight: number; repsAtMaxWeight: number; maxReps: number;
+  lastDate: string; recent: { weight: number; reps: number }[]; // oldest → newest
+}
+interface SessionExerciseSummary {
+  id: string; name: string; weight: number; reps: number;
+  times: number; best: string; flag: 'first' | 'pb' | null;
+}
+function buildExerciseRecords(rows: { exercise_id: string; weight: number; reps: number; completed_at: string }[]): Record<string, ExerciseRecord> {
+  const sorted = [...rows].sort((a, b) => a.completed_at.localeCompare(b.completed_at));
+  const out: Record<string, ExerciseRecord> = {};
+  for (const r of sorted) {
+    const rec = out[r.exercise_id] ?? (out[r.exercise_id] = { times: 0, maxWeight: 0, repsAtMaxWeight: 0, maxReps: 0, lastDate: '', recent: [] });
+    rec.times += 1;
+    if (r.weight > rec.maxWeight || (r.weight === rec.maxWeight && r.reps > rec.repsAtMaxWeight)) { rec.maxWeight = r.weight; rec.repsAtMaxWeight = r.reps; }
+    if (r.reps > rec.maxReps) rec.maxReps = r.reps;
+    rec.lastDate = r.completed_at;
+    rec.recent.push({ weight: r.weight, reps: r.reps });
+  }
+  return out;
+}
+/** Compares one logged exercise against the user's previous record for it. */
+function personalBestFlag(prev: ExerciseRecord | undefined, weight: number, reps: number): 'first' | 'pb' | null {
+  if (!prev) return 'first';
+  if (weight > 0) return weight > prev.maxWeight || (weight === prev.maxWeight && reps > prev.repsAtMaxWeight) ? 'pb' : null;
+  return reps > prev.maxReps ? 'pb' : null;
+}
+/** "24 kg × 8" for weighted exercises, "15 reps" for bodyweight ones. */
+function recordBestLabel(rec: ExerciseRecord): string {
+  return rec.maxWeight > 0 ? `${rec.maxWeight} kg × ${rec.repsAtMaxWeight}` : `${rec.maxReps} reps`;
+}
+
 /** Computes the current Level Challenge / Boss Battle gating state.
  *  `level` (cleared level) only advances via completing a challenge or
  *  boss — see clear_level_challenge / attempt_boss_battle in the DB. */
@@ -2319,7 +2352,7 @@ function computeExerciseXp(ex: Exercise, log: { weight: number; reps: number; se
   return Math.max(0, ex.xp_value + adjustment);
 }
 
-function WorkoutScreen({ exercises, userId, durationMinutes, onBack, onFinish }: { exercises: Exercise[]; userId: string; durationMinutes: number; onBack: () => void; onFinish: (requestedXp: number, grantedXp: number) => void }) {
+function WorkoutScreen({ exercises, userId, durationMinutes, records, onBack, onFinish }: { exercises: Exercise[]; userId: string; durationMinutes: number; records: Record<string, ExerciseRecord>; onBack: () => void; onFinish: (requestedXp: number, grantedXp: number, doneLogs: { exerciseId: string; weight: number; reps: number }[]) => void }) {
   // Captured once, when the workout screen first mounts — i.e. when the
   // user actually starts training. Without this, the session row would
   // only get a started_at/completed_at pair at save time (both ~identical),
@@ -2389,7 +2422,7 @@ function WorkoutScreen({ exercises, userId, durationMinutes, onBack, onFinish }:
 
       const { data: grantedXp } = await supabase.rpc('award_xp', { p_user_id: userId, p_xp: totalXP });
 
-      onFinish(totalXP, grantedXp ?? totalXP);
+      onFinish(totalXP, grantedXp ?? totalXP, exercises.filter((ex) => done.has(ex.id)).map((ex) => ({ exerciseId: ex.id, weight: logs[ex.id].weight, reps: logs[ex.id].reps })));
     }
     setSaving(false);
   };
@@ -2439,6 +2472,11 @@ function WorkoutScreen({ exercises, userId, durationMinutes, onBack, onFinish }:
                     <span className="text-xs font-medium" style={{ color: EQUIPMENT_COLORS[equipment] }}>{EQUIPMENT_LABELS[equipment]}</span>
                     <span className="text-xs" style={{ color: C.muted }}>· +{computeExerciseXp(ex, log)} XP</span>
                   </div>
+                  <p className="mt-0.5 text-[11px] font-medium" style={{ color: records[ex.id] ? C.xp : C.muted, ...MO }}>
+                    {records[ex.id]
+                      ? `Done ${records[ex.id].times}× · Best ${recordBestLabel(records[ex.id])}`
+                      : 'First time — set your mark'}
+                  </p>
                   <p className="text-[10px] mt-0.5" style={{ color: C.muted }}>Tap the icon to see how it's done</p>
                 </div>
               </div>
@@ -2616,8 +2654,9 @@ function detectSessionPopups(prev: UserStats, next: UserStats): { levelUps: { at
   return { levelUps, streakMessage };
 }
 
-function CompleteScreen({ xpEarned, levelUps, streakMessage, newlyUnlocked, unlockedChallenge, xpCapped, onHome }: {
+function CompleteScreen({ xpEarned, exerciseSummary, levelUps, streakMessage, newlyUnlocked, unlockedChallenge, xpCapped, onHome }: {
   xpEarned: number;
+  exerciseSummary: SessionExerciseSummary[];
   levelUps: { attribute: string; level: number }[];
   streakMessage: string | null;
   newlyUnlocked: number;
@@ -2688,6 +2727,29 @@ function CompleteScreen({ xpEarned, levelUps, streakMessage, newlyUnlocked, unlo
         <p className="text-sm" style={{ color: C.muted }}>XP earned this session</p>
         <p className="mt-1 text-4xl font-bold" style={{ color: C.xp, ...MO }}>+<NumberRoll value={xpEarned} duration={0.8} /></p>
       </div>
+      {exerciseSummary.length > 0 && (
+        <div className="mt-4 w-full rounded-2xl border p-4 text-left" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+          <p className="mb-2 text-xs font-medium uppercase tracking-wider" style={{ color: C.muted }}>Your exercises</p>
+          <div className="flex flex-col gap-2.5">
+            {exerciseSummary.map((e) => (
+              <div key={e.id} className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold" style={{ color: C.text, ...SG }}>{e.name}</p>
+                  <p className="text-[11px]" style={{ color: C.muted, ...MO }}>
+                    Done {e.times}× · Best {e.best}
+                  </p>
+                </div>
+                {e.flag && (
+                  <span className="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider"
+                    style={{ backgroundColor: `${e.flag === 'pb' ? C.xp : C.mobility}22`, color: e.flag === 'pb' ? C.xp : C.mobility, ...MO }}>
+                    {e.flag === 'pb' ? '▲ New best' : 'First time'}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {xpCapped && (
         <p className="mt-3 text-xs leading-relaxed" style={{ color: C.muted }}>
           You've hit today's XP limit (2 workouts/day) — this session was still saved, but XP resumes tomorrow.
@@ -2862,7 +2924,91 @@ function ExercisesScreen({ exercises }: { exercises: Exercise[] }) {
   );
 }
 
-function StatsScreen({ stats }: { stats: UserStats }) {
+/** Bars per exercise: best weight × reps (or best reps for bodyweight), recent trend, and a nudge to progress. */
+function ExerciseProgress({ records, exercises }: { records: Record<string, ExerciseRecord>; exercises: Exercise[] }) {
+  const [filter, setFilter] = useState<'all' | 'kettlebell' | 'dumbbell' | 'bodyweight'>('all');
+  const [showAll, setShowAll] = useState(false);
+
+  const rows = exercises
+    .filter((ex) => records[ex.id])
+    .filter((ex) => filter === 'all' || pickPrimaryEquipment(ex.equipment) === filter)
+    .map((ex) => ({ ex, rec: records[ex.id], eq: pickPrimaryEquipment(ex.equipment) }))
+    .sort((a, b) => b.rec.times - a.rec.times || a.ex.name.localeCompare(b.ex.name));
+  const visible = showAll ? rows : rows.slice(0, 8);
+  const maxWeight = Math.max(1, ...rows.map((r) => r.rec.maxWeight));
+  const maxRepsBw = Math.max(1, ...rows.filter((r) => r.rec.maxWeight === 0).map((r) => r.rec.maxReps));
+
+  const nudge = (ex: Exercise, rec: ExerciseRecord): string | null => {
+    if (rec.recent.length < 2) return null;
+    const [a, b] = rec.recent.slice(-2);
+    if (rec.maxWeight > 0) {
+      if (a.weight === rec.maxWeight && b.weight === rec.maxWeight && a.reps >= ex.default_reps && b.reps >= ex.default_reps) return '💪 Try heavier';
+    } else if (a.reps === rec.maxReps && b.reps === rec.maxReps) return '💪 Push more reps';
+    const last = rec.recent[rec.recent.length - 1], prev = rec.recent[rec.recent.length - 2];
+    const lastIsBest = rec.maxWeight > 0 ? last.weight === rec.maxWeight && last.weight > prev.weight : last.reps === rec.maxReps && last.reps > prev.reps;
+    return lastIsBest ? '▲ New best' : null;
+  };
+
+  return (
+    <div className="mt-5 px-5">
+      <h2 className="mb-1 text-sm font-bold uppercase tracking-wide" style={SG}>Exercise Progress</h2>
+      <p className="mb-3 text-xs" style={{ color: C.muted }}>Best weight × reps per exercise, and your last sessions.</p>
+      <div className="mb-3 flex gap-2">
+        {(['all', 'kettlebell', 'dumbbell', 'bodyweight'] as const).map((f) => (
+          <button key={f} onClick={() => { setFilter(f); setShowAll(false); }} className="flex-1 rounded-xl border py-2 text-[11px] font-semibold capitalize"
+            style={{ borderColor: filter === f ? C.xp : C.border, backgroundColor: filter === f ? `${C.xp}1A` : C.surface, color: filter === f ? C.xp : C.text, ...SG }}>
+            {f === 'all' ? 'All' : f === 'bodyweight' ? 'Body' : f === 'kettlebell' ? 'KB' : 'DB'}
+          </button>
+        ))}
+      </div>
+      {rows.length === 0 ? (
+        <div className="rounded-2xl border p-4 text-center text-sm" style={{ borderColor: C.border, backgroundColor: C.surface, color: C.muted }}>
+          Finish a workout and your exercises show up here.
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3 rounded-2xl border p-4" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+          {visible.map(({ ex, rec, eq }) => {
+            const color = EQUIPMENT_COLORS[eq];
+            const weighted = rec.maxWeight > 0;
+            const pct = Math.max(4, Math.round((weighted ? rec.maxWeight / maxWeight : rec.maxReps / maxRepsBw) * 100));
+            const tag = nudge(ex, rec);
+            const trend = rec.recent.slice(-6).map((r) => (weighted ? r.weight : r.reps));
+            const trendMax = Math.max(1, ...trend);
+            return (
+              <div key={ex.id}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate text-sm font-bold" style={{ color: C.text, ...SG }}>{ex.name}</span>
+                  {tag && <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ backgroundColor: `${C.xp}22`, color: C.xp, ...MO }}>{tag}</span>}
+                </div>
+                <div className="mt-1.5 flex items-center gap-3">
+                  <div className="h-2.5 flex-1 overflow-hidden rounded-full" style={{ backgroundColor: C.raised }}>
+                    <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color, boxShadow: `0 0 8px ${color}88` }} />
+                  </div>
+                  <span className="w-20 shrink-0 text-right text-xs font-bold" style={{ color, ...MO }}>{recordBestLabel(rec)}</span>
+                </div>
+                <div className="mt-1.5 flex items-end justify-between">
+                  <span className="text-[10px]" style={{ color: C.muted, ...MO }}>Done {rec.times}× · last {new Date(rec.lastDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</span>
+                  <div className="flex h-5 items-end gap-0.5" title={weighted ? 'Weight, last sessions' : 'Reps, last sessions'}>
+                    {trend.map((v, i) => (
+                      <div key={i} className="w-1.5 rounded-sm" style={{ height: `${Math.max(15, Math.round((v / trendMax) * 100))}%`, backgroundColor: color, opacity: 0.35 + 0.65 * ((i + 1) / trend.length) }} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {rows.length > 8 && (
+            <button onClick={() => setShowAll((v) => !v)} className="rounded-xl border py-2 text-xs font-semibold" style={{ borderColor: C.border, color: C.muted, ...SG }}>
+              {showAll ? 'Show fewer' : `Show all ${rows.length}`}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatsScreen({ stats, records, exercises }: { stats: UserStats; records: Record<string, ExerciseRecord>; exercises: Exercise[] }) {
   return (
     <div className="min-h-screen pb-24" style={{ backgroundColor: C.bg }}>
       <header className="px-5 pt-6 pb-4">
@@ -2904,6 +3050,7 @@ function StatsScreen({ stats }: { stats: UserStats }) {
           })}
         </div>
       </div>
+      <ExerciseProgress records={records} exercises={exercises} />
     </div>
   );
 }
@@ -2977,11 +3124,37 @@ function getAverageBmi(age: number, gender: 'male' | 'female' | 'other'): number
  * kept only in local component state and are NEVER sent to Supabase or any
  * server, per GDPR: nothing here is persisted or logged anywhere.
  */
-function BMICalculator() {
+function BMICalculator({ userId }: { userId: string }) {
   const [age, setAge] = useState('');
   const [gender, setGender] = useState<'female' | 'male' | 'other'>('female');
   const [heightCm, setHeightCm] = useState('');
   const [weightKg, setWeightKg] = useState('');
+
+  // Remembered on this device only (localStorage, keyed per user) — never sent
+  // to Supabase, so body measurements stay out of the database (GDPR Art. 9).
+  const storageKey = `wodxp_bmi_${userId}`;
+  const [loaded, setLoaded] = useState(false);
+  React.useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(storageKey);
+      if (raw) {
+        const v = JSON.parse(raw);
+        if (typeof v.age === 'string') setAge(v.age);
+        if (v.gender === 'female' || v.gender === 'male' || v.gender === 'other') setGender(v.gender);
+        if (typeof v.heightCm === 'string') setHeightCm(v.heightCm);
+        if (typeof v.weightKg === 'string') setWeightKg(v.weightKg);
+      }
+    } catch { /* storage unavailable — calculator still works, just isn't remembered */ }
+    setLoaded(true);
+  }, [storageKey]);
+  React.useEffect(() => {
+    if (!loaded) return;
+    try { window.localStorage.setItem(storageKey, JSON.stringify({ age, gender, heightCm, weightKg })); } catch { /* ignore */ }
+  }, [loaded, storageKey, age, gender, heightCm, weightKg]);
+  const clearSaved = () => {
+    setAge(''); setGender('female'); setHeightCm(''); setWeightKg('');
+    try { window.localStorage.removeItem(storageKey); } catch { /* ignore */ }
+  };
 
   const h = parseFloat(heightCm);
   const w = parseFloat(weightKg);
@@ -2994,7 +3167,10 @@ function BMICalculator() {
     <div>
       <h2 className="mb-1 text-sm font-bold uppercase tracking-wide" style={SG}>BMI Calculator</h2>
       <p className="mb-3 text-xs" style={{ color: C.muted }}>
-        Not saved anywhere — calculated on your device only.
+        Remembered on this device only — never sent to our servers.{' '}
+        {(age || heightCm || weightKg) && (
+          <button onClick={clearSaved} className="underline" style={{ color: C.muted }}>Clear saved</button>
+        )}
       </p>
       <div className="rounded-2xl border p-4" style={{ borderColor: C.border, backgroundColor: C.surface }}>
         <div className="grid grid-cols-2 gap-3">
@@ -3060,7 +3236,7 @@ function BMICalculator() {
   );
 }
 
-function ProfileMenu({ username, onLogout, onPrivacy, allTimeStats }: { username: string; onLogout: () => void; onPrivacy: () => void; allTimeStats: AllTimeStats }) {
+function ProfileMenu({ userId, username, onLogout, onPrivacy, allTimeStats }: { userId: string; username: string; onLogout: () => void; onPrivacy: () => void; allTimeStats: AllTimeStats }) {
   return (
     <div className="min-h-screen pb-24" style={{ backgroundColor: C.bg }}>
       <header className="px-5 pt-6 pb-4">
@@ -3073,7 +3249,7 @@ function ProfileMenu({ username, onLogout, onPrivacy, allTimeStats }: { username
       </div>
 
       <div className="px-5 pt-6">
-        <BMICalculator />
+        <BMICalculator userId={userId} />
       </div>
 
       <div className="px-5 pt-6 flex flex-col gap-3">
@@ -3640,6 +3816,29 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
   const [wodMedalsState, setWodMedalsState] = useState(wodMedals);
   const [selectedWod, setSelectedWod] = useState<ClassicWod | null>(null);
   const [wodResult, setWodResult] = useState<{ medal: string | null; scoreValue: number } | null>(null);
+  const [exerciseRecords, setExerciseRecords] = useState<Record<string, ExerciseRecord>>({});
+  const [sessionSummary, setSessionSummary] = useState<SessionExerciseSummary[]>([]);
+
+  // Times done + best weight/reps per exercise, derived from the user's own
+  // completed workout_exercises rows (RLS limits the query to their sessions).
+  const refreshExerciseRecords = async (): Promise<Record<string, ExerciseRecord>> => {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('workout_exercises')
+      .select('exercise_id, weight, reps, workout_sessions!inner(completed_at, status)')
+      .eq('completed', true)
+      .eq('workout_sessions.status', 'completed')
+      .limit(5000);
+    if (error || !data) return exerciseRecords;
+    const rows = data.map((r: any) => {
+      const sess = Array.isArray(r.workout_sessions) ? r.workout_sessions[0] : r.workout_sessions;
+      return { exercise_id: r.exercise_id as string, weight: Number(r.weight) || 0, reps: Number(r.reps) || 0, completed_at: (sess?.completed_at as string) ?? '' };
+    });
+    const next = buildExerciseRecords(rows);
+    setExerciseRecords(next);
+    return next;
+  };
+  React.useEffect(() => { refreshExerciseRecords(); }, []);
 
   React.useEffect(() => {
     if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('friend')) setTab('friends');
@@ -3704,8 +3903,9 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     router.push('/login');
   };
 
-  const handleFinish = async (requestedXp: number, grantedXp: number) => {
+  const handleFinish = async (requestedXp: number, grantedXp: number, doneLogs: { exerciseId: string; weight: number; reps: number }[] = []) => {
     setLastXP(grantedXp);
+    const previousRecords = exerciseRecords;
     setXpCapped(grantedXp < requestedXp);
     const supabase = createClient();
     const previousStats = stats;
@@ -3744,6 +3944,13 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
       setSessionUnlockedChallenge(null);
     }
     await refreshAllTimeStats();
+    const nextRecords = await refreshExerciseRecords();
+    setSessionSummary(doneLogs.flatMap((l) => {
+      const ex = sessionExercises.find((e) => e.id === l.exerciseId);
+      const rec = nextRecords[l.exerciseId];
+      if (!ex || !rec) return [];
+      return [{ id: ex.id, name: ex.name, weight: l.weight, reps: l.reps, times: rec.times, best: recordBestLabel(rec), flag: personalBestFlag(previousRecords[l.exerciseId], l.weight, l.reps) }];
+    }));
     setScreen('complete');
   };
 
@@ -3847,7 +4054,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     <>
       <GlobalStyle />
       <PageTransition screenKey={screen}>
-        <WorkoutScreen exercises={sessionExercises} userId={user.id} durationMinutes={sessionDurationMinutes}
+        <WorkoutScreen exercises={sessionExercises} userId={user.id} durationMinutes={sessionDurationMinutes} records={exerciseRecords}
           onBack={() => setScreen('tab')} onFinish={handleFinish} />
       </PageTransition>
     </>
@@ -3856,7 +4063,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     <>
       <GlobalStyle />
       <PageTransition screenKey={screen}>
-        <CompleteScreen xpEarned={lastXP} levelUps={sessionLevelUps} streakMessage={sessionStreakMessage} newlyUnlocked={sessionNewlyUnlocked} unlockedChallenge={sessionUnlockedChallenge} xpCapped={xpCapped} onHome={() => { setScreen('tab'); setTab('home'); }} />
+        <CompleteScreen xpEarned={lastXP} exerciseSummary={sessionSummary} levelUps={sessionLevelUps} streakMessage={sessionStreakMessage} newlyUnlocked={sessionNewlyUnlocked} unlockedChallenge={sessionUnlockedChallenge} xpCapped={xpCapped} onHome={() => { setScreen('tab'); setTab('home'); }} />
       </PageTransition>
     </>
   );
@@ -3873,8 +4080,8 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
   else if (tab === 'wodxp') content = <WodXpScreen stats={stats} classicWods={classicWods} summary={wodSummary} wodMedals={wodMedalsState} onOpenWod={(wod) => { setSelectedWod(wod); setScreen('wod-detail'); }} />;
   else if (tab === 'friends') content = <FriendsScreen />;
   else if (tab === 'exercises') content = <ExercisesScreen exercises={exercises} />;
-  else if (tab === 'stats') content = <StatsScreen stats={stats} />;
-  else if (tab === 'profile') content = <ProfileMenu username={user.username} onLogout={handleLogout} onPrivacy={() => router.push('/privacy')} allTimeStats={allTimeStats} />;
+  else if (tab === 'stats') content = <StatsScreen stats={stats} records={exerciseRecords} exercises={exercises} />;
+  else if (tab === 'profile') content = <ProfileMenu userId={user.id} username={user.username} onLogout={handleLogout} onPrivacy={() => router.push('/privacy')} allTimeStats={allTimeStats} />;
 
   return (
     <div style={{ backgroundColor: C.bg }}>
