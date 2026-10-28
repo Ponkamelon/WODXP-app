@@ -85,7 +85,7 @@ export default async function PrivacyPage() {
             <li>We do not collect precise location data.</li>
             <li>We do not access your device&apos;s camera, microphone, or contacts.</li>
             <li>We do not currently process payments (this section will be updated if paid features are introduced).</li>
-            <li>The App&apos;s BMI calculator (age, gender, height, weight) runs entirely on your device. Those values are never sent to our servers, never stored, and disappear as soon as you leave the screen.</li>
+            <li>The App&apos;s BMI calculator (age, gender, height, weight) runs entirely on your device. Those values are never sent to our servers. To save you re-typing them, the App remembers them in your device&apos;s local browser storage until you change them or tap &quot;Clear saved&quot; (or clear your browser data).</li>
           </ul>
         </Section>
 
