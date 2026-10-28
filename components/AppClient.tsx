@@ -410,6 +410,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 75 additions:
+  'Kneeling Backbend to Reach|bodyweight': '/exercise-images/bodyweight/kneeling_backbend_to_reach.png',
+  'Double KB Push Press|kettlebell': '/exercise-images/kettlebell/double_kb_push_press.png',
+  'Dumbbell Overhead Split Squat|dumbbell': '/exercise-images/dumbbell/dumbbell_overhead_split_squat.png',
+  'Tuck Jump + Mountain Climbers|bodyweight': '/exercise-images/bodyweight/tuck_jump_mountain_climbers.png',
+  'Double KB Split Squat|kettlebell': '/exercise-images/kettlebell/double_kb_split_squat.png',
+  'Dumbbell Turkish Get-Up with Press|dumbbell': '/exercise-images/dumbbell/dumbbell_turkish_get_up_with_press.png',
+  'Broad Jump + Tuck Jump|bodyweight': '/exercise-images/bodyweight/broad_jump_tuck_jump.png',
+  'Heavy KB Turkish Get-Up|kettlebell': '/exercise-images/kettlebell/heavy_kb_turkish_get_up.png',
+  'Dumbbell Renegade Row to Knee Drive|dumbbell': '/exercise-images/dumbbell/dumbbell_renegade_row_to_knee_drive.png',
+  'Cossack Squat Deep Flow|bodyweight': '/exercise-images/bodyweight/cossack_squat_deep_flow.png',
   // Batch 74 additions:
   'Shin Box Get-Up to Balance|bodyweight': '/exercise-images/bodyweight/shin_box_get_up_to_balance.png',
   'Double KB Gorilla Row|kettlebell': '/exercise-images/kettlebell/double_kb_gorilla_row.png',
