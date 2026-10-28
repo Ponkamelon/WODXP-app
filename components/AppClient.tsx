@@ -410,6 +410,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 76 additions:
+  'Hip Airplane Flow|bodyweight': '/exercise-images/bodyweight/hip_airplane_flow.png',
+  'Double KB Renegade Row|kettlebell': '/exercise-images/kettlebell/double_kb_renegade_row.png',
+  'Dumbbell Squat Clean|dumbbell': '/exercise-images/dumbbell/dumbbell_squat_clean.png',
+  'Skater Jump to Tuck Jump|bodyweight': '/exercise-images/bodyweight/skater_jump_to_tuck_jump.png',
+  'Double KB Step-Up|kettlebell': '/exercise-images/kettlebell/double_kb_step_up.png',
+  'Dumbbell Overhead Cossack Squat|dumbbell': '/exercise-images/dumbbell/dumbbell_overhead_cossack_squat.png',
+  'Burpee Tuck Jump Continuous|bodyweight': '/exercise-images/bodyweight/burpee_tuck_jump_continuous.png',
+  'Dumbbell Plank Row to Push-Up|dumbbell': '/exercise-images/dumbbell/dumbbell_plank_row_to_push_up.png',
+  'Shin Box to Standing without Hands|bodyweight': '/exercise-images/bodyweight/shin_box_to_standing_without_hands.png',
+  'Dumbbell Snatch Walking Lunge|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch_walking_lunge.png',
   // Batch 75 additions:
   'Kneeling Backbend to Reach|bodyweight': '/exercise-images/bodyweight/kneeling_backbend_to_reach.png',
   'Double KB Push Press|kettlebell': '/exercise-images/kettlebell/double_kb_push_press.png',
