@@ -443,6 +443,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 84 additions:
+  'Cossack to Hip Airplane Flow|bodyweight': '/exercise-images/bodyweight/cossack_to_hip_airplane_flow.png',
+  'Dumbbell Double Snatch to Squat|dumbbell': '/exercise-images/dumbbell/dumbbell_double_snatch_to_squat.png',
+  'Dumbbell Overhead Walking Lunge Complex|dumbbell': '/exercise-images/dumbbell/dumbbell_overhead_walking_lunge_complex.png',
+  'Ground Flow Rotation|bodyweight': '/exercise-images/bodyweight/ground_flow_rotation.png',
+  'Jumping Lunge Burpee Complex|bodyweight': '/exercise-images/bodyweight/jumping_lunge_burpee_complex_v2.png',
+  'KB Snatch to Windmill|kettlebell': '/exercise-images/kettlebell/kb_snatch_to_windmill.png',
+  'Bear Crawl + Burpee + Broad Jump|bodyweight': '/exercise-images/bodyweight/bear_crawl_burpee_broad_jump.png',
+  'Burpee 180 + Tuck Jump|bodyweight': '/exercise-images/bodyweight/burpee_180_tuck_jump.png',
+  'Double KB Overhead Reverse Lunge|kettlebell': '/exercise-images/kettlebell/double_kb_overhead_reverse_lunge.png',
+  'Dumbbell Clean and Push Jerk|dumbbell': '/exercise-images/dumbbell/dumbbell_clean_and_push_jerk.png',
   // Batch 81 additions:
   'Advanced Mobility Flow|bodyweight': '/exercise-images/bodyweight/advanced_mobility_flow.png',
   'Dumbbell Clean and Jerk Complex|dumbbell': '/exercise-images/dumbbell/dumbbell_clean_and_jerk_complex.png',
