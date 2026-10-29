@@ -2492,7 +2492,7 @@ function WorkoutScreen({ exercises, userId, durationMinutes, records, onBack, on
               transition={{ delay: exIndex * 0.06, duration: 0.3, ease: 'easeOut' }}
             >
               <div className="flex items-center gap-3 mb-4">
-                <button onClick={() => setViewing(ex)} className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl transition-transform active:scale-95" style={{ backgroundColor: C.raised }}>
+                <button onClick={() => setViewing(ex)} className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border transition-transform active:scale-95" style={{ backgroundColor: C.raised, borderColor: `${C.mobility}88`, boxShadow: `0 0 10px ${C.mobility}33` }}>
                   <ExerciseIcon exercise={ex} size={40} />
                 </button>
                 <div>
@@ -2508,7 +2508,9 @@ function WorkoutScreen({ exercises, userId, durationMinutes, records, onBack, on
                       ? `Done ${records[ex.id].times}× · Best ${recordBestLabel(records[ex.id])}`
                       : 'First time — set your mark'}
                   </p>
-                  <p className="text-[10px] mt-0.5" style={{ color: C.muted }}>Tap the icon to see how it's done</p>
+                  <p className="mt-1 flex items-center gap-1 text-xs font-bold" style={{ color: C.mobility }}>
+                    <Search size={12} strokeWidth={3} /> Tap the icon to see how it&apos;s done
+                  </p>
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-1 rounded-xl border px-1 py-3" style={{ borderColor: C.border }}>
@@ -3306,6 +3308,22 @@ interface FitnessTestResult {
   id: string; test_id: string; value: number; weight_kg: number | null;
   workouts_at_test: number; created_at: string;
 }
+/** Illustration shown with each test — reuses the matching exercise illustration.
+ *  Dead Hang has none yet; add a dedicated image path here when one exists. */
+const FITNESS_TEST_IMAGES: Record<string, string | undefined> = {
+  pushup: EXERCISE_ILLUSTRATION_IMAGES['Push-Up|bodyweight'],
+  airsquat: EXERCISE_ILLUSTRATION_IMAGES['Bodyweight Squat|bodyweight'],
+  situp: EXERCISE_ILLUSTRATION_IMAGES['Sit-Up|bodyweight'],
+  plank: EXERCISE_ILLUSTRATION_IMAGES['Plank|bodyweight'],
+  wallsit: EXERCISE_ILLUSTRATION_IMAGES['Wall Sit|bodyweight'],
+  burpee: EXERCISE_ILLUSTRATION_IMAGES['Burpee|bodyweight'],
+  pullup: EXERCISE_ILLUSTRATION_IMAGES['Pull-Up|bodyweight'],
+  mountainclimber: EXERCISE_ILLUSTRATION_IMAGES['Mountain Climber|bodyweight'],
+  kbswing: EXERCISE_ILLUSTRATION_IMAGES['Kettlebell Swing|kettlebell'],
+  lunge: EXERCISE_ILLUSTRATION_IMAGES['Walking Lunge|bodyweight'],
+  farmerhold: EXERCISE_ILLUSTRATION_IMAGES['KB Farmer Hold|kettlebell'],
+};
+
 /** After this many workouts since the last attempt, Home nudges the user to retest. */
 const RETEST_AFTER_WORKOUTS = 10;
 
@@ -3358,8 +3376,10 @@ function TestsScreen({ tests, results, level, available, onOpen, newIds }: {
             const last = rs[rs.length - 1];
             return (
               <button key={t.id} onClick={() => onOpen(t)} className="flex items-center gap-3 rounded-2xl border p-4 text-left" style={{ borderColor: freshIds.has(t.id) ? C.xp : C.border, backgroundColor: C.surface }}>
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${C.xp}1A` }}>
-                  <Timer size={20} color={C.xp} />
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl" style={{ backgroundColor: `${C.xp}1A` }}>
+                  {FITNESS_TEST_IMAGES[t.id]
+                    ? <img src={FITNESS_TEST_IMAGES[t.id]} alt="" className="h-full w-full object-cover" />
+                    : <Timer size={20} color={C.xp} />}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
@@ -3461,6 +3481,11 @@ function FitnessTestScreen({ test, results, totalWorkouts, userId, onBack, onSav
       </div>
 
       <div className="rounded-2xl border p-4" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+        {FITNESS_TEST_IMAGES[test.id] && (
+          <div className="mb-4 flex justify-center">
+            <img src={FITNESS_TEST_IMAGES[test.id]} alt={test.name} className="w-full max-w-xs rounded-2xl" style={{ boxShadow: `0 0 24px ${C.xp}33` }} />
+          </div>
+        )}
         <p className="text-sm font-bold" style={{ color: C.xp, ...SG }}>{test.challenge}</p>
         {test.description && <p className="mt-2 text-xs leading-relaxed" style={{ color: C.muted }}>{test.description}</p>}
         <p className="mt-3 text-[11px]" style={{ color: best ? C.xp : C.muted, ...MO }}>
@@ -4311,7 +4336,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     { key: 'home', label: 'Home' },
     { key: 'exercises', label: 'Exercises' },
     { key: 'wodxp', label: 'WOD XP' },
-    { key: 'tests', label: 'Tests' },
+    { key: 'tests', label: 'Fitness' },
     { key: 'stats', label: 'Stats' },
     { key: 'profile', label: 'Profile' },
   ];
