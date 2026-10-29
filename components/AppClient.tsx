@@ -1299,10 +1299,11 @@ function Stepper({ label, value, onChange, step = 1, unit, min = 0 }: { label: s
 // ─── Screens ─────────────────────────────────────────────────────────────────
 
 interface TestNotice { kind: 'new' | 'retest'; title: string; body: string; }
-function HomeScreen({ user, stats, onGenerate, onChallenge, onBoss, levelChallenges, bossBattles, unlockedCount, totalCount, testNotice, onTestNotice, onDismissTestNotice, onFriends }: {
+function HomeScreen({ user, stats, onGenerate, onChallenge, onBoss, levelChallenges, bossBattles, unlockedCount, totalCount, testNotice, onTestNotice, onDismissTestNotice, onFriends, installCard }: {
   user: User; stats: UserStats; onGenerate: () => void; onChallenge: () => void; onBoss: () => void;
   levelChallenges: LevelChallenge[]; bossBattles: BossBattle[]; unlockedCount: number; totalCount: number;
   testNotice: TestNotice | null; onTestNotice: () => void; onDismissTestNotice: () => void; onFriends: () => void;
+  installCard: { onOpen: () => void; onDismiss: () => void } | null;
 }) {
   const progress = getLevelProgress(stats, levelChallenges, bossBattles);
 
@@ -1347,6 +1348,21 @@ function HomeScreen({ user, stats, onGenerate, onChallenge, onBoss, levelChallen
           <ChevronRight size={22} strokeWidth={2.5} />
         </LedBorderButton>
       </section>
+
+      {installCard && (
+        <section className="px-5 pt-4">
+          <div className="flex items-center gap-3 rounded-2xl border px-4 py-3.5" style={{ borderColor: `${C.xp}66`, backgroundColor: `${C.xp}12` }}>
+            <button onClick={installCard.onOpen} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-xl" style={{ backgroundColor: `${C.xp}22` }}>📲</div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold" style={{ color: C.text, ...SG }}>Add WODXP to your Home Screen</p>
+                <p className="text-[11px]" style={{ color: C.muted }}>Open it like an app — see how in 10 seconds.</p>
+              </div>
+            </button>
+            <button onClick={installCard.onDismiss} aria-label="Dismiss" className="shrink-0 px-1 text-lg leading-none" style={{ color: C.muted }}>×</button>
+          </div>
+        </section>
+      )}
 
       {testNotice && (
         <section className="px-5 pt-4">
@@ -3324,7 +3340,98 @@ function BMICalculator({ userId }: { userId: string }) {
   );
 }
 
-function ProfileMenu({ userId, username, onLogout, onPrivacy, allTimeStats }: { userId: string; username: string; onLogout: () => void; onPrivacy: () => void; allTimeStats: AllTimeStats }) {
+// ─── Add to Home Screen (install guide) ───────────────────────────────────────
+/** Chrome/Edge fire this once the app is installable; iOS Safari never does. */
+interface InstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
+function isStandaloneDisplay(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia('(display-mode: standalone)').matches
+    || (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+}
+function isIosDevice(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+const INSTALL_STEPS: Record<'ios' | 'android', { title: string; image: string; steps: string[] }> = {
+  ios: {
+    title: 'iPhone / iPad (Safari)',
+    image: '/install-guide/ios.jpg',
+    steps: ['Open wodxp.com in Safari', 'Tap the Share button', 'Choose "Add to Home Screen"', 'Tap Add — done!'],
+  },
+  android: {
+    title: 'Android (Chrome)',
+    image: '/install-guide/android.jpg',
+    steps: ['Open wodxp.com in Chrome', 'Tap the ⋮ menu', 'Choose "Install app" or "Add to Home screen"', 'Confirm — done!'],
+  },
+};
+
+function InstallGuideModal({ installEvent, onClose, onInstalled }: {
+  installEvent: InstallPromptEvent | null; onClose: () => void; onInstalled: () => void;
+}) {
+  const [platform, setPlatform] = useState<'ios' | 'android'>(() => (isIosDevice() ? 'ios' : 'android'));
+  const guide = INSTALL_STEPS[platform];
+  const accent = platform === 'ios' ? EQUIPMENT_COLORS.bodyweight : EQUIPMENT_COLORS.kettlebell;
+
+  const install = async () => {
+    if (!installEvent) return;
+    await installEvent.prompt();
+    const choice = await installEvent.userChoice;
+    if (choice.outcome === 'accepted') onInstalled();
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center" style={{ backgroundColor: 'rgba(0,0,0,0.85)' }} onClick={onClose}>
+      <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-3xl border p-5 sm:rounded-3xl" style={{ borderColor: `${accent}66`, backgroundColor: C.bg }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold" style={{ color: C.text, ...SG }}>Add WODXP to your Home Screen</h2>
+            <p className="mt-0.5 text-xs" style={{ color: C.muted }}>Open it like any app — full screen, one tap.</p>
+          </div>
+          <button onClick={onClose} aria-label="Close" className="shrink-0 px-1 text-2xl leading-none" style={{ color: C.muted }}>×</button>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          {(['ios', 'android'] as const).map((p) => (
+            <button key={p} onClick={() => setPlatform(p)} className="rounded-xl border py-2 text-xs font-bold"
+              style={{
+                borderColor: platform === p ? (p === 'ios' ? EQUIPMENT_COLORS.bodyweight : EQUIPMENT_COLORS.kettlebell) : C.border,
+                color: platform === p ? C.text : C.muted,
+                backgroundColor: platform === p ? C.surface : 'transparent', ...SG,
+              }}>
+              {p === 'ios' ? 'iPhone' : 'Android'}
+            </button>
+          ))}
+        </div>
+
+        <img src={guide.image} alt={`How to add WODXP to the Home Screen on ${guide.title}`} className="mt-4 w-full rounded-2xl" />
+
+        <ol className="mt-4 flex flex-col gap-2">
+          {guide.steps.map((st, i) => (
+            <li key={i} className="flex items-center gap-3 text-sm" style={{ color: C.text }}>
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold" style={{ backgroundColor: `${accent}22`, color: accent, ...MO }}>{i + 1}</span>
+              {st}
+            </li>
+          ))}
+        </ol>
+
+        {installEvent && platform === 'android' && (
+          <button onClick={install} className="mt-5 w-full rounded-2xl py-3.5 text-sm font-bold" style={{ backgroundColor: EQUIPMENT_COLORS.kettlebell, color: '#0D0D0D', ...SG }}>
+            Install now
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProfileMenu({ userId, username, onLogout, onPrivacy, onInstall, allTimeStats }: { userId: string; username: string; onLogout: () => void; onPrivacy: () => void; onInstall: (() => void) | null; allTimeStats: AllTimeStats }) {
   return (
     <div className="min-h-screen pb-24" style={{ backgroundColor: C.bg }}>
       <header className="px-5 pt-6 pb-4">
@@ -3341,6 +3448,12 @@ function ProfileMenu({ userId, username, onLogout, onPrivacy, allTimeStats }: { 
       </div>
 
       <div className="px-5 pt-6 flex flex-col gap-3">
+        {onInstall && (
+          <button onClick={onInstall} className="flex w-full items-center justify-between rounded-2xl border py-4 px-5 text-sm font-bold" style={{ borderColor: C.border, color: C.text, backgroundColor: C.surface, ...SG }}>
+            Add to Home Screen
+            <ChevronRight size={16} style={{ color: C.muted }} />
+          </button>
+        )}
         <button onClick={onPrivacy} className="flex w-full items-center justify-between rounded-2xl border py-4 px-5 text-sm font-bold" style={{ borderColor: C.border, color: C.text, backgroundColor: C.surface, ...SG }}>
           Privacy Policy
           <ChevronRight size={16} style={{ color: C.muted }} />
@@ -4176,6 +4289,26 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
   const [stats, setStats] = useState(initialStats);
   const [allTimeStats, setAllTimeStats] = useState(initialAllTimeStats);
   const [exercises, setExercises] = useState(initialExercises);
+  // Add-to-Home-Screen: hidden when already running as an installed app.
+  const [installEvent, setInstallEvent] = useState<InstallPromptEvent | null>(null);
+  const [installed, setInstalled] = useState(false);
+  const [showInstallGuide, setShowInstallGuide] = useState(false);
+  const [installCardDismissed, setInstallCardDismissed] = useState(true); // hidden until localStorage is read
+  const installAvailable = !installed;
+  const dismissInstallCard = () => {
+    setInstallCardDismissed(true);
+    try { localStorage.setItem('wodxp_install_dismissed', '1'); } catch { /* storage unavailable */ }
+  };
+  React.useEffect(() => {
+    setInstalled(isStandaloneDisplay());
+    try { setInstallCardDismissed(localStorage.getItem('wodxp_install_dismissed') === '1'); } catch { setInstallCardDismissed(false); }
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+    const onPrompt = (e: Event) => { e.preventDefault(); setInstallEvent(e as InstallPromptEvent); };
+    const onInstalled = () => { setInstalled(true); setInstallEvent(null); };
+    window.addEventListener('beforeinstallprompt', onPrompt);
+    window.addEventListener('appinstalled', onInstalled);
+    return () => { window.removeEventListener('beforeinstallprompt', onPrompt); window.removeEventListener('appinstalled', onInstalled); };
+  }, []);
   // Lookup list for challenge/boss/WOD screens: everything the user has unlocked
   // plus every movement those screens reference (their unlock follows total
   // level, not the per-category levels that cap `exercises`).
@@ -4529,6 +4662,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
       levelChallenges={levelChallenges} bossBattles={bossBattles}
       unlockedCount={exercises.length} totalCount={totalExerciseCount}
       testNotice={testNotice} onTestNotice={handleTestNotice} onDismissTestNotice={dismissRetest} onFriends={() => setTab('friends')}
+      installCard={installAvailable && !installCardDismissed ? { onOpen: () => setShowInstallGuide(true), onDismiss: dismissInstallCard } : null}
     />
   );
   else if (tab === 'wodxp') content = <WodXpScreen stats={stats} classicWods={classicWods} summary={wodSummary} wodMedals={wodMedalsState} onOpenWod={(wod) => { setSelectedWod(wod); setScreen('wod-detail'); }} />;
@@ -4544,7 +4678,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     onOpen={(t) => { setSelectedTestId(t.id); setScreen('test'); }} />;
   else if (tab === 'exercises') content = <ExercisesScreen exercises={exercises} />;
   else if (tab === 'stats') content = <StatsScreen stats={stats} records={exerciseRecords} exercises={exercises} />;
-  else if (tab === 'profile') content = <ProfileMenu userId={user.id} username={user.username} onLogout={handleLogout} onPrivacy={() => router.push('/privacy')} allTimeStats={allTimeStats} />;
+  else if (tab === 'profile') content = <ProfileMenu userId={user.id} username={user.username} onLogout={handleLogout} onPrivacy={() => router.push('/privacy')} onInstall={installAvailable ? () => setShowInstallGuide(true) : null} allTimeStats={allTimeStats} />;
 
   return (
     <div style={{ backgroundColor: C.bg }}>
@@ -4568,6 +4702,9 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
           );
         })}
       </nav>
+      {showInstallGuide && (
+        <InstallGuideModal installEvent={installEvent} onClose={() => setShowInstallGuide(false)} onInstalled={() => { setInstalled(true); setInstallEvent(null); }} />
+      )}
     </div>
   );
 }
