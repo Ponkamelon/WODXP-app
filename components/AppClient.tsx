@@ -2503,7 +2503,7 @@ function WorkoutScreen({ exercises, userId, durationMinutes, records, onBack, on
               transition={{ delay: exIndex * 0.06, duration: 0.3, ease: 'easeOut' }}
             >
               <div className="flex items-center gap-3 mb-4">
-                <button onClick={() => setViewing(ex)} className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border transition-transform active:scale-95" style={{ backgroundColor: C.raised, borderColor: `${C.mobility}88`, boxShadow: `0 0 10px ${C.mobility}33` }}>
+                <button onClick={() => setViewing(ex)} className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border transition-transform active:scale-95" style={{ backgroundColor: C.raised, borderColor: `${EQUIPMENT_COLORS[equipment]}CC`, boxShadow: `0 0 10px ${EQUIPMENT_COLORS[equipment]}44` }}>
                   <ExerciseIcon exercise={ex} size={40} />
                 </button>
                 <div>
@@ -2519,8 +2519,8 @@ function WorkoutScreen({ exercises, userId, durationMinutes, records, onBack, on
                       ? `Done ${records[ex.id].times}× · Best ${recordBestLabel(records[ex.id])}`
                       : 'First time — set your mark'}
                   </p>
-                  <p className="mt-1 flex items-center gap-1 text-xs font-bold" style={{ color: C.mobility }}>
-                    <Search size={12} strokeWidth={3} /> Tap the icon to see how it&apos;s done
+                  <p className="mt-1 flex items-center gap-1 text-xs font-bold" style={{ color: '#FFFFFF' }}>
+                    <Search size={12} strokeWidth={3} style={{ color: EQUIPMENT_COLORS[equipment] }} /> Tap the icon to see how it&apos;s done
                   </p>
                 </div>
               </div>
