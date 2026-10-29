@@ -54,7 +54,7 @@ interface ClassicWod {
 }
 interface WodSummary { completed: number; gold: number; silver: number; bronze: number; }
 interface Props {
-  user: User; stats: UserStats; exercises: Exercise[]; allTimeStats: AllTimeStats;
+  user: User; stats: UserStats; exercises: Exercise[]; challengeExercises: Exercise[]; allTimeStats: AllTimeStats;
   levelChallenges: LevelChallenge[]; bossBattles: BossBattle[]; totalExerciseCount: number;
   classicWods: ClassicWod[]; wodSummary: WodSummary; wodMedals: Record<number, string>;
 }
@@ -4159,7 +4159,7 @@ const SCREEN_DEPTH: Record<string, number> = {
   complete: 4,
 };
 
-export default function AppClient({ user, stats: initialStats, exercises: initialExercises, allTimeStats: initialAllTimeStats, levelChallenges, bossBattles, totalExerciseCount, classicWods, wodSummary: initialWodSummary, wodMedals }: Props) {
+export default function AppClient({ user, stats: initialStats, exercises: initialExercises, challengeExercises, allTimeStats: initialAllTimeStats, levelChallenges, bossBattles, totalExerciseCount, classicWods, wodSummary: initialWodSummary, wodMedals }: Props) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('home');
   const [screen, setScreen] = useState<Screen>('tab');
@@ -4176,6 +4176,13 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
   const [stats, setStats] = useState(initialStats);
   const [allTimeStats, setAllTimeStats] = useState(initialAllTimeStats);
   const [exercises, setExercises] = useState(initialExercises);
+  // Lookup list for challenge/boss/WOD screens: everything the user has unlocked
+  // plus every movement those screens reference (their unlock follows total
+  // level, not the per-category levels that cap `exercises`).
+  const challengeLookup = React.useMemo(() => {
+    const seen = new Set(exercises.map((e: Exercise) => e.id));
+    return [...exercises, ...challengeExercises.filter((e: Exercise) => !seen.has(e.id))];
+  }, [exercises, challengeExercises]);
   const [wodSummary, setWodSummary] = useState(initialWodSummary);
   const [wodMedalsState, setWodMedalsState] = useState(wodMedals);
   const [selectedWod, setSelectedWod] = useState<ClassicWod | null>(null);
@@ -4405,7 +4412,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
       <>
         <GlobalStyle />
         <PageTransition screenKey={screen}>
-          <LevelChallengeScreen challenge={progress.challenge} exercises={exercises} userId={user.id} onBack={() => setScreen('tab')}
+          <LevelChallengeScreen challenge={progress.challenge} exercises={challengeLookup} userId={user.id} onBack={() => setScreen('tab')}
             onComplete={async (xp) => { setChallengeXpEarned(xp); await refreshStats(); setScreen('challenge-result'); }}
             onFail={() => setScreen('tab')} />
         </PageTransition>
@@ -4427,7 +4434,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
       <>
         <GlobalStyle />
         <PageTransition screenKey={screen}>
-          <BossBattleScreen boss={progress.boss} exercises={exercises} userId={user.id} onBack={() => setScreen('tab')}
+          <BossBattleScreen boss={progress.boss} exercises={challengeLookup} userId={user.id} onBack={() => setScreen('tab')}
             onComplete={async (result) => { setBossResult(result); await refreshStats(); setScreen('boss-result'); }} />
         </PageTransition>
       </>
@@ -4448,7 +4455,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     <>
       <GlobalStyle />
       <PageTransition screenKey={screen}>
-        <WodDetailScreen wod={selectedWod} exercises={exercises} userId={user.id} onBack={() => setScreen('tab')}
+        <WodDetailScreen wod={selectedWod} exercises={challengeLookup} userId={user.id} onBack={() => setScreen('tab')}
           onComplete={async (result) => { setWodResult(result); await refreshWodSummary(); setScreen('wod-result'); }} />
       </PageTransition>
     </>
