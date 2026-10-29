@@ -443,6 +443,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 77 additions:
+  'Deep Squat to Reverse Tabletop|bodyweight': '/exercise-images/bodyweight/deep_squat_to_reverse_tabletop.png',
+  'Double KB Clean to Squat|kettlebell': '/exercise-images/kettlebell/double_kb_clean_to_squat.png',
+  'Dumbbell Clean-Squat-Press|dumbbell': '/exercise-images/dumbbell/dumbbell_clean_squat_press.png',
+  'Mountain Climber + Jump Squat|bodyweight': '/exercise-images/bodyweight/mountain_climber_jump_squat.png',
+  'Double KB Single-Leg RDL|kettlebell': '/exercise-images/kettlebell/double_kb_single_leg_rdl.png',
+  'Dumbbell Single-Leg RDL Row to Knee Drive|dumbbell': '/exercise-images/dumbbell/dumbbell_single_leg_rdl_row_to_knee_drive.png',
+  'Burpee Broad Jump + Backpedal|bodyweight': '/exercise-images/bodyweight/burpee_broad_jump_backpedal.png',
+  'KB Turkish Get-Up with Press|kettlebell': '/exercise-images/kettlebell/kb_turkish_get_up_with_press.png',
+  'Hip Airplane to Reverse Lunge|bodyweight': '/exercise-images/bodyweight/hip_airplane_to_reverse_lunge.png',
+  'Dumbbell Renegade Row Complex|dumbbell': '/exercise-images/dumbbell/dumbbell_renegade_row_complex.png',
   // Batch 76 additions:
   'Hip Airplane Flow|bodyweight': '/exercise-images/bodyweight/hip_airplane_flow.png',
   'Double KB Renegade Row|kettlebell': '/exercise-images/kettlebell/double_kb_renegade_row.png',
