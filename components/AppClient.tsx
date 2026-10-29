@@ -7,7 +7,7 @@ import { motion, useMotionValue, animate } from 'motion/react';
 import {
   Flame, ChevronRight, Search, Lock, Trophy, Swords, Plus, Crown,
   TrendingUp, Award, Sparkles, Target, Clock, Gauge,
-  Minus, Check, ArrowLeft,
+  Minus, Check, ArrowLeft, Users, Timer,
 } from 'lucide-react';
 import {
   CATEGORY_ICONS, CATEGORY_LABELS, EQUIPMENT_LABELS, EQUIPMENT_COLORS,
@@ -1243,9 +1243,11 @@ function Stepper({ label, value, onChange, step = 1, unit, min = 0 }: { label: s
 
 // ─── Screens ─────────────────────────────────────────────────────────────────
 
-function HomeScreen({ user, stats, onGenerate, onChallenge, onBoss, levelChallenges, bossBattles, unlockedCount, totalCount }: {
+interface TestNotice { kind: 'new' | 'retest'; title: string; body: string; }
+function HomeScreen({ user, stats, onGenerate, onChallenge, onBoss, levelChallenges, bossBattles, unlockedCount, totalCount, testNotice, onTestNotice, onDismissTestNotice, onFriends }: {
   user: User; stats: UserStats; onGenerate: () => void; onChallenge: () => void; onBoss: () => void;
   levelChallenges: LevelChallenge[]; bossBattles: BossBattle[]; unlockedCount: number; totalCount: number;
+  testNotice: TestNotice | null; onTestNotice: () => void; onDismissTestNotice: () => void; onFriends: () => void;
 }) {
   const progress = getLevelProgress(stats, levelChallenges, bossBattles);
 
@@ -1290,6 +1292,25 @@ function HomeScreen({ user, stats, onGenerate, onChallenge, onBoss, levelChallen
           <ChevronRight size={22} strokeWidth={2.5} />
         </LedBorderButton>
       </section>
+
+      {testNotice && (
+        <section className="px-5 pt-4">
+          <div className="flex items-center gap-3 rounded-2xl border px-4 py-3.5" style={{ borderColor: `${C.mobility}66`, backgroundColor: `${C.mobility}12` }}>
+            <button onClick={onTestNotice} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${C.mobility}22` }}>
+                <Timer size={20} color={C.mobility} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold" style={{ color: C.text, ...SG }}>{testNotice.title}</p>
+                <p className="text-[11px]" style={{ color: C.muted }}>{testNotice.body}</p>
+              </div>
+            </button>
+            {testNotice.kind === 'retest' && (
+              <button onClick={onDismissTestNotice} aria-label="Dismiss" className="shrink-0 px-1 text-lg leading-none" style={{ color: C.muted }}>×</button>
+            )}
+          </div>
+        </section>
+      )}
 
       <section className="px-5 pt-4">
         {progress.isComplete ? (
@@ -1357,6 +1378,16 @@ function HomeScreen({ user, stats, onGenerate, onChallenge, onBoss, levelChallen
             <span className="font-bold" style={{ color: C.text, ...MO }}>{stats.longest_streak} days</span>
           </div>
         </div>
+      </section>
+
+      <section className="px-5 pt-6">
+        <button onClick={onFriends} className="flex w-full items-center justify-between rounded-2xl border px-5 py-4" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+          <span className="flex items-center gap-3">
+            <Users size={20} color={C.xp} />
+            <span className="text-sm font-bold" style={{ color: C.text, ...SG }}>Friends</span>
+          </span>
+          <ChevronRight size={18} style={{ color: C.muted }} />
+        </button>
       </section>
     </div>
   );
@@ -3265,6 +3296,259 @@ function ProfileMenu({ userId, username, onLogout, onPrivacy, allTimeStats }: { 
   );
 }
 
+// ─── Fitness Tests (unlocked by Quest Level, no XP, results saved) ───────────
+interface FitnessTest {
+  id: string; name: string; challenge: string; description: string | null;
+  metric: 'reps' | 'time'; duration_seconds: number | null; uses_weight: boolean;
+  unlock_level: number; sort_order: number;
+}
+interface FitnessTestResult {
+  id: string; test_id: string; value: number; weight_kg: number | null;
+  workouts_at_test: number; created_at: string;
+}
+/** After this many workouts since the last attempt, Home nudges the user to retest. */
+const RETEST_AFTER_WORKOUTS = 10;
+
+function formatClock(totalSeconds: number): string {
+  const m = Math.floor(totalSeconds / 60);
+  const s = Math.round(totalSeconds % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+function formatTestResult(t: FitnessTest, value: number, weight: number | null): string {
+  const base = t.metric === 'time' ? formatClock(value) : `${value} reps`;
+  return t.uses_weight && weight ? `${base} @ ${weight} kg` : base;
+}
+/** Weighted tests rank by weight first, then by reps/time; others by value. */
+function isBetterTestResult(t: FitnessTest, a: { value: number; weight_kg: number | null }, b: { value: number; weight_kg: number | null }): boolean {
+  if (t.uses_weight && (a.weight_kg ?? 0) !== (b.weight_kg ?? 0)) return (a.weight_kg ?? 0) > (b.weight_kg ?? 0);
+  return a.value > b.value;
+}
+function bestTestResult(t: FitnessTest, rs: FitnessTestResult[]): FitnessTestResult | null {
+  return rs.reduce<FitnessTestResult | null>((best, r) => (!best || isBetterTestResult(t, r, best) ? r : best), null);
+}
+function shortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+}
+
+function TestsScreen({ tests, results, level, available, onOpen, newIds }: {
+  tests: FitnessTest[]; results: FitnessTestResult[]; level: number; available: boolean;
+  onOpen: (t: FitnessTest) => void; newIds: string[];
+}) {
+  const [freshIds] = useState(() => new Set(newIds)); // snapshot at open, so "NEW" chips survive being marked as seen
+  const unlocked = tests.filter((t) => t.unlock_level <= level);
+  const locked = tests.filter((t) => t.unlock_level > level);
+
+  return (
+    <div className="min-h-screen pb-24" style={{ backgroundColor: C.bg }}>
+      <header className="px-5 pt-6 pb-4">
+        <p className="text-xs uppercase tracking-wider" style={{ color: C.muted }}>Test yourself</p>
+        <h1 className="text-2xl font-bold" style={SG}>Fitness Tests</h1>
+        <p className="mt-1 text-xs" style={{ color: C.muted }}>Take a test anytime. No XP — just your numbers, saved so you can beat them.</p>
+      </header>
+
+      {!available ? (
+        <div className="mx-5 rounded-2xl border p-4 text-center text-sm" style={{ borderColor: C.border, backgroundColor: C.surface, color: C.muted }}>
+          Fitness Tests aren&apos;t available yet.
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3 px-5">
+          {unlocked.map((t) => {
+            const rs = results.filter((r) => r.test_id === t.id);
+            const best = bestTestResult(t, rs);
+            const last = rs[rs.length - 1];
+            return (
+              <button key={t.id} onClick={() => onOpen(t)} className="flex items-center gap-3 rounded-2xl border p-4 text-left" style={{ borderColor: freshIds.has(t.id) ? C.xp : C.border, backgroundColor: C.surface }}>
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${C.xp}1A` }}>
+                  <Timer size={20} color={C.xp} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="truncate text-sm font-bold" style={{ color: C.text, ...SG }}>{t.name}</p>
+                    {freshIds.has(t.id) && <span className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase" style={{ backgroundColor: `${C.xp}22`, color: C.xp, ...MO }}>New</span>}
+                  </div>
+                  <p className="truncate text-[11px]" style={{ color: C.muted }}>{t.challenge}</p>
+                  <p className="mt-1 text-[11px]" style={{ color: best ? C.xp : C.muted, ...MO }}>
+                    {best ? `Best ${formatTestResult(t, Number(best.value), best.weight_kg)} · ${rs.length}× · last ${shortDate(last.created_at)}` : 'Not tested yet — tap to start'}
+                  </p>
+                </div>
+                <ChevronRight size={18} style={{ color: C.muted }} />
+              </button>
+            );
+          })}
+          {locked.length > 0 && <p className="mt-2 text-xs font-bold uppercase tracking-wide" style={{ color: C.muted, ...SG }}>Locked</p>}
+          {locked.map((t) => (
+            <div key={t.id} className="flex items-center gap-3 rounded-2xl border p-4 opacity-60" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: C.raised }}>
+                <Lock size={18} color={C.muted} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-bold" style={{ color: C.text, ...SG }}>{t.name}</p>
+                <p className="text-[11px]" style={{ color: C.muted, ...MO }}>Unlocks at Level {t.unlock_level}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FitnessTestScreen({ test, results, totalWorkouts, userId, onBack, onSaved }: {
+  test: FitnessTest; results: FitnessTestResult[]; totalWorkouts: number; userId: string;
+  onBack: () => void; onSaved: () => Promise<void>;
+}) {
+  // hold = stopwatch, amrap = countdown then enter reps, reps = just enter reps
+  const mode: 'hold' | 'amrap' | 'reps' = test.metric === 'time' ? 'hold' : test.duration_seconds ? 'amrap' : 'reps';
+  const [phase, setPhase] = useState<'ready' | 'running' | 'enter' | 'saved'>(mode === 'reps' ? 'enter' : 'ready');
+  const [elapsed, setElapsed] = useState(0);
+  const [remaining, setRemaining] = useState(test.duration_seconds ?? 0);
+  const [reps, setReps] = useState('');
+  const [weight, setWeight] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [savedInfo, setSavedInfo] = useState<{ isBest: boolean; text: string } | null>(null);
+  const startRef = React.useRef(0);
+  useWakeLock(phase === 'running');
+
+  React.useEffect(() => {
+    if (phase !== 'running') return;
+    const id = setInterval(() => {
+      const sec = (Date.now() - startRef.current) / 1000;
+      if (mode === 'hold') {
+        setElapsed(Math.floor(sec));
+      } else {
+        const left = Math.max(0, Math.ceil((test.duration_seconds ?? 0) - sec));
+        setRemaining(left);
+        if (left <= 0) { clearInterval(id); setPhase('enter'); }
+      }
+    }, 200);
+    return () => clearInterval(id);
+  }, [phase]);
+
+  const start = () => { startRef.current = Date.now(); setElapsed(0); setRemaining(test.duration_seconds ?? 0); setPhase('running'); };
+  const stopHold = () => { setElapsed(Math.max(1, Math.round((Date.now() - startRef.current) / 1000))); setPhase('enter'); };
+  const retry = () => { setReps(''); setElapsed(0); setError(null); setPhase(mode === 'reps' ? 'enter' : 'ready'); };
+
+  const value = mode === 'hold' ? elapsed : parseInt(reps, 10);
+  const canSave = Number.isFinite(value) && value > 0;
+
+  const save = async () => {
+    if (!canSave) return;
+    setSaving(true); setError(null);
+    const supabase = createClient();
+    const w = test.uses_weight && weight !== '' && Number(weight) > 0 ? Number(weight) : null;
+    const { error: err } = await supabase.from('fitness_test_results').insert({ user_id: userId, test_id: test.id, value, weight_kg: w, workouts_at_test: totalWorkouts });
+    setSaving(false);
+    if (err) { setError('Could not save — check your connection and try again.'); return; }
+    const prevBest = bestTestResult(test, results);
+    setSavedInfo({ isBest: !prevBest || isBetterTestResult(test, { value, weight_kg: w }, prevBest), text: formatTestResult(test, value, w) });
+    setPhase('saved');
+    await onSaved();
+  };
+
+  const best = bestTestResult(test, results);
+  const recent = results.slice(-6).reverse();
+  const maxForBars = Math.max(1, ...results.slice(-6).map((r) => Number(r.value)));
+
+  return (
+    <div className="min-h-screen px-5 pb-12 pt-6" style={{ backgroundColor: C.bg }}>
+      <div className="mb-5 flex items-center gap-3">
+        <button onClick={onBack} className="flex h-9 w-9 items-center justify-center rounded-full border" style={{ borderColor: C.border, backgroundColor: C.surface }}><ArrowLeft size={16} style={{ color: C.text }} /></button>
+        <div>
+          <p className="text-xs uppercase tracking-wider" style={{ color: C.muted }}>Fitness Test · no XP</p>
+          <h1 className="text-xl font-bold" style={SG}>{test.name}</h1>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border p-4" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+        <p className="text-sm font-bold" style={{ color: C.xp, ...SG }}>{test.challenge}</p>
+        {test.description && <p className="mt-2 text-xs leading-relaxed" style={{ color: C.muted }}>{test.description}</p>}
+        <p className="mt-3 text-[11px]" style={{ color: best ? C.xp : C.muted, ...MO }}>
+          {best ? `Your best: ${formatTestResult(test, Number(best.value), best.weight_kg)}` : 'No result yet — set your first mark!'}
+        </p>
+      </div>
+
+      <div className="mt-4 rounded-2xl border p-5 text-center" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+        {phase === 'ready' && (
+          <>
+            <p className="text-sm" style={{ color: C.muted }}>
+              {mode === 'hold' ? 'Press start, then stop the clock the moment you let go.' : `You have ${formatClock(test.duration_seconds ?? 0)} — as many as you can.`}
+            </p>
+            <LedBorderButton onClick={start} radius={12} className="mt-4 w-full rounded-xl py-4 text-lg font-bold" style={{ backgroundColor: C.xp, color: '#04140A', ...SG }}>Start</LedBorderButton>
+          </>
+        )}
+        {phase === 'running' && (
+          <>
+            <p className="text-6xl font-bold" style={{ color: C.xp, ...MO }}>{formatClock(mode === 'hold' ? elapsed : remaining)}</p>
+            <p className="mt-1 text-xs" style={{ color: C.muted }}>{mode === 'hold' ? 'Holding…' : 'Keep counting your reps!'}</p>
+            {mode === 'hold' ? (
+              <LedBorderButton onClick={stopHold} radius={12} className="mt-4 w-full rounded-xl py-4 text-lg font-bold" style={{ backgroundColor: C.conditioning, color: '#1A0A00', ...SG }}>Stop</LedBorderButton>
+            ) : (
+              <button onClick={retry} className="mt-4 text-xs underline" style={{ color: C.muted }}>Cancel</button>
+            )}
+          </>
+        )}
+        {phase === 'enter' && (
+          <>
+            {mode === 'hold' ? (
+              <>
+                <p className="text-xs uppercase tracking-wider" style={{ color: C.muted }}>Your time</p>
+                <p className="text-5xl font-bold" style={{ color: C.xp, ...MO }}>{formatClock(elapsed)}</p>
+              </>
+            ) : (
+              <>
+                <p className="text-xs uppercase tracking-wider" style={{ color: C.muted }}>{mode === 'amrap' ? "Time's up! How many reps?" : 'How many reps did you do?'}</p>
+                <input type="number" inputMode="numeric" min={0} value={reps} onChange={(e) => setReps(e.target.value)} placeholder="0"
+                  className="mt-2 w-full rounded-xl border px-3 py-3 text-center text-3xl font-bold outline-none"
+                  style={{ borderColor: C.border, backgroundColor: C.raised, color: C.text, ...MO }} />
+              </>
+            )}
+            {test.uses_weight && (
+              <div className="mt-3">
+                <label className="mb-1 block text-[10px] uppercase tracking-wider" style={{ color: C.muted }}>Weight used (kg{test.id === 'farmerhold' ? ', per hand' : ''})</label>
+                <input type="number" inputMode="decimal" min={0} value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="16"
+                  className="w-full rounded-lg border px-3 py-2 text-center text-lg outline-none"
+                  style={{ borderColor: C.border, backgroundColor: C.raised, color: C.text, ...MO }} />
+              </div>
+            )}
+            {error && <p className="mt-3 text-xs" style={{ color: C.boss }}>{error}</p>}
+            <LedBorderButton onClick={save} disabled={!canSave || saving} radius={12} className="mt-4 w-full rounded-xl py-4 text-lg font-bold disabled:opacity-50"
+              style={{ backgroundColor: canSave ? C.xp : C.raised, color: canSave ? '#04140A' : C.muted, ...SG }}>
+              {saving ? 'Saving…' : 'Save result'}
+            </LedBorderButton>
+            {mode !== 'reps' && <button onClick={retry} className="mt-3 text-xs underline" style={{ color: C.muted }}>Discard and retry</button>}
+          </>
+        )}
+        {phase === 'saved' && savedInfo && (
+          <>
+            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full" style={{ backgroundColor: `${C.xp}1F`, border: `2px solid ${C.xp}` }}><Check size={28} strokeWidth={3} style={{ color: C.xp }} /></div>
+            <p className="text-3xl font-bold" style={{ color: C.xp, ...MO }}>{savedInfo.text}</p>
+            <p className="mt-1 text-sm font-bold" style={{ color: savedInfo.isBest ? C.xp : C.text, ...SG }}>{savedInfo.isBest ? '▲ New personal best!' : 'Result saved'}</p>
+            <button onClick={onBack} className="mt-4 w-full rounded-xl py-3 text-sm font-bold" style={{ backgroundColor: C.raised, color: C.text, ...SG }}>Back to tests</button>
+          </>
+        )}
+      </div>
+
+      {recent.length > 0 && (
+        <div className="mt-4 rounded-2xl border p-4" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+          <p className="mb-2 text-xs font-bold uppercase tracking-wide" style={SG}>History</p>
+          <div className="flex flex-col gap-2">
+            {recent.map((r) => (
+              <div key={r.id} className="flex items-center gap-3">
+                <span className="w-12 shrink-0 text-[10px]" style={{ color: C.muted, ...MO }}>{shortDate(r.created_at)}</span>
+                <div className="h-2 flex-1 overflow-hidden rounded-full" style={{ backgroundColor: C.raised }}>
+                  <div className="h-full rounded-full" style={{ width: `${Math.max(4, Math.round((Number(r.value) / maxForBars) * 100))}%`, backgroundColor: C.xp }} />
+                </div>
+                <span className="w-24 shrink-0 text-right text-[11px] font-bold" style={{ color: C.text, ...MO }}>{formatTestResult(test, Number(r.value), r.weight_kg)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Friends (step 1: invite codes, friend list, sharing controls, shared streak + level) ──
 interface FriendSettingsData {
   friends_enabled: boolean; share_last_workout: boolean; allow_invites: boolean; allow_challenges: boolean;
@@ -3782,14 +4066,14 @@ function FriendsScreen() {
 }
 
 // ─── App Shell ────────────────────────────────────────────────────────────────
-type Tab = 'home' | 'exercises' | 'wodxp' | 'friends' | 'stats' | 'profile';
-type Screen = 'tab' | 'generator' | 'safety' | 'workout' | 'complete' | 'challenge' | 'boss' | 'challenge-result' | 'boss-result' | 'wod-detail' | 'wod-result';
+type Tab = 'home' | 'exercises' | 'wodxp' | 'friends' | 'tests' | 'stats' | 'profile';
+type Screen = 'tab' | 'generator' | 'safety' | 'workout' | 'complete' | 'challenge' | 'boss' | 'challenge-result' | 'boss-result' | 'wod-detail' | 'wod-result' | 'test';
 
 /** Depth ranking per screen, used by PageTransition to infer forward vs
  *  back navigation direction without touching every setScreen() call site. */
 const SCREEN_DEPTH: Record<string, number> = {
   tab: 0,
-  generator: 1, challenge: 1, boss: 1, 'wod-detail': 1,
+  generator: 1, challenge: 1, boss: 1, 'wod-detail': 1, test: 1,
   safety: 2, 'challenge-result': 2, 'boss-result': 2, 'wod-result': 2,
   workout: 3,
   complete: 4,
@@ -3839,6 +4123,75 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     return next;
   };
   React.useEffect(() => { refreshExerciseRecords(); }, []);
+
+  // Fitness tests: catalogue + the user's own results. If the tables don't
+  // exist yet (SQL not run), the Tests tab simply shows "not available".
+  const [fitnessTests, setFitnessTests] = useState<FitnessTest[]>([]);
+  const [fitnessResults, setFitnessResults] = useState<FitnessTestResult[]>([]);
+  const [testsAvailable, setTestsAvailable] = useState(true);
+  const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
+  const [seenTests, setSeenTests] = useState<string[] | null>(null); // null until localStorage has been read
+  const [retestDismissedAt, setRetestDismissedAt] = useState<number | null>(null);
+  const seenKey = `wodxp_tests_seen_${user.id}`;
+  const dismissKey = `wodxp_retest_dismissed_${user.id}`;
+
+  const refreshFitnessTests = async () => {
+    const supabase = createClient();
+    const [t, r] = await Promise.all([
+      supabase.from('fitness_tests').select('*').order('sort_order', { ascending: true }),
+      supabase.from('fitness_test_results').select('*').order('created_at', { ascending: true }).limit(2000),
+    ]);
+    if (t.error || !t.data) { setTestsAvailable(false); return; }
+    setTestsAvailable(true);
+    setFitnessTests(t.data as FitnessTest[]);
+    setFitnessResults(((r.data ?? []) as any[]).map((x) => ({ ...x, value: Number(x.value), weight_kg: x.weight_kg === null ? null : Number(x.weight_kg) })));
+  };
+  React.useEffect(() => { refreshFitnessTests(); }, []);
+  React.useEffect(() => {
+    let seen: string[] = [];
+    try {
+      const raw = window.localStorage.getItem(seenKey);
+      if (raw) seen = JSON.parse(raw);
+      const d = window.localStorage.getItem(dismissKey);
+      if (d !== null) setRetestDismissedAt(Number(d));
+    } catch { /* storage unavailable — notices just show again next visit */ }
+    setSeenTests(Array.isArray(seen) ? seen : []);
+  }, [seenKey, dismissKey]);
+
+  const unlockedTests = fitnessTests.filter((t) => t.unlock_level <= stats.level);
+  const newTests = seenTests === null ? [] : unlockedTests.filter((t) => !seenTests.includes(t.id));
+  React.useEffect(() => {
+    if (tab !== 'tests' || screen !== 'tab' || seenTests === null || newTests.length === 0) return;
+    const merged = Array.from(new Set([...seenTests, ...unlockedTests.map((t) => t.id)]));
+    setSeenTests(merged);
+    try { window.localStorage.setItem(seenKey, JSON.stringify(merged)); } catch { /* ignore */ }
+  }, [tab, screen, seenTests, newTests.length]);
+
+  // Nudge to retest once enough workouts have passed since the last attempt.
+  const retestCandidate = (() => {
+    let best: { test: FitnessTest; since: number } | null = null;
+    for (const t of unlockedTests) {
+      const rs = fitnessResults.filter((r) => r.test_id === t.id);
+      if (rs.length === 0) continue;
+      const since = allTimeStats.totalWorkouts - rs[rs.length - 1].workouts_at_test;
+      if (since >= RETEST_AFTER_WORKOUTS && (!best || since > best.since)) best = { test: t, since };
+    }
+    return best;
+  })();
+  const retestVisible = retestCandidate !== null && (retestDismissedAt === null || allTimeStats.totalWorkouts - retestDismissedAt >= 5);
+  const testNotice: TestNotice | null = newTests.length > 0
+    ? { kind: 'new', title: newTests.length === 1 ? `🔓 New fitness test: ${newTests[0].name}` : `🔓 ${newTests.length} new fitness tests unlocked`, body: 'Test yourself anytime — no XP, just your numbers.' }
+    : retestVisible && retestCandidate
+      ? { kind: 'retest', title: `Time to retest: ${retestCandidate.test.name}`, body: `${retestCandidate.since} workouts since your last test — beat your best!` }
+      : null;
+  const handleTestNotice = () => {
+    if (testNotice?.kind === 'retest' && retestCandidate) { setSelectedTestId(retestCandidate.test.id); setScreen('test'); }
+    else setTab('tests');
+  };
+  const dismissRetest = () => {
+    setRetestDismissedAt(allTimeStats.totalWorkouts);
+    try { window.localStorage.setItem(dismissKey, String(allTimeStats.totalWorkouts)); } catch { /* ignore */ }
+  };
 
   React.useEffect(() => {
     if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('friend')) setTab('friends');
@@ -3958,7 +4311,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     { key: 'home', label: 'Home' },
     { key: 'exercises', label: 'Exercises' },
     { key: 'wodxp', label: 'WOD XP' },
-    { key: 'friends', label: 'Friends' },
+    { key: 'tests', label: 'Tests' },
     { key: 'stats', label: 'Stats' },
     { key: 'profile', label: 'Profile' },
   ];
@@ -4059,6 +4412,19 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
       </PageTransition>
     </>
   );
+  if (screen === 'test') {
+    const test = fitnessTests.find((t) => t.id === selectedTestId);
+    if (!test) { setScreen('tab'); return null; }
+    return (
+      <>
+        <GlobalStyle />
+        <PageTransition screenKey={screen}>
+          <FitnessTestScreen test={test} results={fitnessResults.filter((r) => r.test_id === test.id)} totalWorkouts={allTimeStats.totalWorkouts} userId={user.id}
+            onBack={() => setScreen('tab')} onSaved={refreshFitnessTests} />
+        </PageTransition>
+      </>
+    );
+  }
   if (screen === 'complete') return (
     <>
       <GlobalStyle />
@@ -4075,10 +4441,20 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
       onChallenge={() => setScreen('challenge')} onBoss={() => setScreen('boss')}
       levelChallenges={levelChallenges} bossBattles={bossBattles}
       unlockedCount={exercises.length} totalCount={totalExerciseCount}
+      testNotice={testNotice} onTestNotice={handleTestNotice} onDismissTestNotice={dismissRetest} onFriends={() => setTab('friends')}
     />
   );
   else if (tab === 'wodxp') content = <WodXpScreen stats={stats} classicWods={classicWods} summary={wodSummary} wodMedals={wodMedalsState} onOpenWod={(wod) => { setSelectedWod(wod); setScreen('wod-detail'); }} />;
-  else if (tab === 'friends') content = <FriendsScreen />;
+  else if (tab === 'friends') content = (
+    <>
+      <div className="px-5 pt-5">
+        <button onClick={() => setTab('home')} className="flex items-center gap-1.5 text-xs font-bold" style={{ color: C.muted, ...SG }}><ArrowLeft size={14} /> Home</button>
+      </div>
+      <FriendsScreen />
+    </>
+  );
+  else if (tab === 'tests') content = <TestsScreen tests={fitnessTests} results={fitnessResults} level={stats.level} available={testsAvailable} newIds={newTests.map((t) => t.id)}
+    onOpen={(t) => { setSelectedTestId(t.id); setScreen('test'); }} />;
   else if (tab === 'exercises') content = <ExercisesScreen exercises={exercises} />;
   else if (tab === 'stats') content = <StatsScreen stats={stats} records={exerciseRecords} exercises={exercises} />;
   else if (tab === 'profile') content = <ProfileMenu userId={user.id} username={user.username} onLogout={handleLogout} onPrivacy={() => router.push('/privacy')} allTimeStats={allTimeStats} />;
@@ -4095,7 +4471,12 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
           return (
             <button key={t.key} onClick={() => setTab(t.key)} className="flex flex-col items-center gap-1 px-3 py-1" style={{ color: tab === t.key ? activeColor : C.muted }}>
               <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tab === t.key ? activeColor : 'transparent', boxShadow: tab === t.key ? `0 0 6px ${activeColor}` : 'none' }} />
-              <span className="text-[10px] font-medium uppercase tracking-wide">{t.label}</span>
+              <span className="relative text-[10px] font-medium uppercase tracking-wide">
+                {t.label}
+                {t.key === 'tests' && newTests.length > 0 && tab !== 'tests' && (
+                  <span className="absolute -right-2 -top-1 h-2 w-2 rounded-full" style={{ backgroundColor: C.boss }} />
+                )}
+              </span>
             </button>
           );
         })}
