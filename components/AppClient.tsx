@@ -443,6 +443,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 79 additions:
+  'Crab Reach to Cossack|bodyweight': '/exercise-images/bodyweight/crab_reach_to_cossack.png',
+  'Double KB Swing|kettlebell': '/exercise-images/kettlebell/double_kb_swing.png',
+  'Dumbbell Windmill to Overhead Squat|dumbbell': '/exercise-images/dumbbell/dumbbell_windmill_to_overhead_squat.png',
+  'Burpee + Lateral Jump|bodyweight': '/exercise-images/bodyweight/burpee_lateral_jump.png',
+  'Double KB Clean Reverse Lunge|kettlebell': '/exercise-images/kettlebell/double_kb_clean_reverse_lunge.png',
+  'Dumbbell Push-Up Row to Rotation|dumbbell': '/exercise-images/dumbbell/dumbbell_push_up_row_to_rotation.png',
+  'Cossack Squat to Single-Leg Balance|bodyweight': '/exercise-images/bodyweight/cossack_squat_to_single_leg_balance.png',
+  'Dumbbell Overhead Reverse Lunge to Knee Drive|dumbbell': '/exercise-images/dumbbell/dumbbell_overhead_reverse_lunge_to_knee_drive.png',
+  'Jumping Lunge + Burpee Complex|bodyweight': '/exercise-images/bodyweight/jumping_lunge_burpee_complex.png',
+  'KB Bottom-Up Turkish Get-Up Partial|kettlebell': '/exercise-images/kettlebell/kb_bottom_up_turkish_get_up_partial.png',
   // Batch 78 additions:
   'Cossack to Lunge Flow|bodyweight': '/exercise-images/bodyweight/cossack_to_lunge_flow.png',
   'Double KB Thruster|kettlebell': '/exercise-images/kettlebell/double_kb_thruster.png',
