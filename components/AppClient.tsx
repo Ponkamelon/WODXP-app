@@ -443,6 +443,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 80 additions:
+  'Broad Jump + Burpee + High Knees|bodyweight': '/exercise-images/bodyweight/broad_jump_burpee_high_knees.png',
+  'Double KB Front Squat to Press|kettlebell': '/exercise-images/kettlebell/double_kb_front_squat_to_press.png',
+  'Dumbbell Snatch to Overhead Squat|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch_to_overhead_squat.png',
+  'Tuck Jump Burpee Complex|bodyweight': '/exercise-images/bodyweight/tuck_jump_burpee_complex.png',
+  'Double KB Snatch Preparation|kettlebell': '/exercise-images/kettlebell/double_kb_snatch_preparation.png',
+  'Dumbbell Renegade Row Burpee|dumbbell': '/exercise-images/dumbbell/dumbbell_renegade_row_burpee.png',
+  'Jumping Lunge + Skater Jump Complex|bodyweight': '/exercise-images/bodyweight/jumping_lunge_skater_jump_complex.png',
+  'Dumbbell Man Maker Lite|dumbbell': '/exercise-images/dumbbell/dumbbell_man_maker_lite.png',
+  'KB Turkish Get-Up Flow|kettlebell': '/exercise-images/kettlebell/kb_turkish_get_up_flow.png',
+  'Burpee + Tuck Jump + Mountain Climbers|bodyweight': '/exercise-images/bodyweight/burpee_tuck_jump_mountain_climbers.png',
   // Batch 79 additions:
   'Crab Reach to Cossack|bodyweight': '/exercise-images/bodyweight/crab_reach_to_cossack.png',
   'Double KB Swing|kettlebell': '/exercise-images/kettlebell/double_kb_swing.png',
