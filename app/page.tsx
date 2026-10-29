@@ -41,6 +41,32 @@ export default async function HomePage() {
     .lte('unlock_level', maxLevel)
     .order('unlock_level', { ascending: true });
 
+  // Level challenges, boss battles and WODs unlock by TOTAL level, but the
+  // list above is capped by the highest per-category level — so a movement
+  // used by an unlocked challenge can be missing (no tap-through, no image).
+  // Fetch every movement those screens reference, regardless of level.
+  type NamedStep = { exercise_name?: string | null };
+  const challengeNames = new Set<string>();
+  const addNames = (steps: NamedStep[] | null | undefined) => {
+    for (const st of steps ?? []) if (st?.exercise_name) challengeNames.add(st.exercise_name);
+  };
+  for (const lc of levelChallenges ?? []) {
+    if (lc.exercise_name) challengeNames.add(lc.exercise_name);
+    addNames(lc.structure);
+  }
+  for (const bb of bossBattles ?? []) {
+    addNames(bb.structure);
+    addNames(bb.scaled_structure);
+  }
+  for (const w of classicWods ?? []) addNames(w.structure);
+  const { data: challengeExercises } = challengeNames.size > 0
+    ? await supabase
+        .from('exercises')
+        .select('*')
+        .in('name', Array.from(challengeNames))
+        .order('unlock_level', { ascending: true })
+    : { data: [] };
+
   return (
     <AppClient
       user={{ id: user.id, email: user.email ?? '', username: profile?.username ?? '' }}
@@ -51,6 +77,7 @@ export default async function HomePage() {
         current_streak: 0, longest_streak: 0, streak_freeze_count: 1,
       }}
       exercises={exercises ?? []}
+      challengeExercises={challengeExercises ?? []}
       allTimeStats={{
         totalWorkouts: allTimeStats.total_workouts ?? 0,
         totalKg: allTimeStats.total_kg ?? 0,
