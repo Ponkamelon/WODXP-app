@@ -443,6 +443,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 78 additions:
+  'Cossack to Lunge Flow|bodyweight': '/exercise-images/bodyweight/cossack_to_lunge_flow.png',
+  'Double KB Thruster|kettlebell': '/exercise-images/kettlebell/double_kb_thruster.png',
+  'Dumbbell Devil Press to Lunge|dumbbell': '/exercise-images/dumbbell/dumbbell_devil_press_to_lunge.png',
+  'Bear Crawl to Broad Jump|bodyweight': '/exercise-images/bodyweight/bear_crawl_to_broad_jump.png',
+  'Double KB Front Rack Lunge|kettlebell': '/exercise-images/kettlebell/double_kb_front_rack_lunge.png',
+  'Dumbbell Turkish Get-Up to Windmill|dumbbell': '/exercise-images/dumbbell/dumbbell_turkish_get_up_to_windmill.png',
+  'Burpee + Tuck + 180|bodyweight': '/exercise-images/bodyweight/burpee_tuck_180.png',
+  'KB Windmill to Press|kettlebell': '/exercise-images/kettlebell/kb_windmill_to_press.png',
+  'Dumbbell Front Rack Step-Up to Knee Drive|dumbbell': '/exercise-images/dumbbell/dumbbell_front_rack_step_up_to_knee_drive.png',
+  'Deep Squat to Hip Airplane|bodyweight': '/exercise-images/bodyweight/deep_squat_to_hip_airplane.png',
   // Batch 77 additions:
   'Deep Squat to Reverse Tabletop|bodyweight': '/exercise-images/bodyweight/deep_squat_to_reverse_tabletop.png',
   'Double KB Clean to Squat|kettlebell': '/exercise-images/kettlebell/double_kb_clean_to_squat.png',
