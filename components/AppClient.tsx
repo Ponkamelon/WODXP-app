@@ -443,6 +443,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 81 additions:
+  'Advanced Mobility Flow|bodyweight': '/exercise-images/bodyweight/advanced_mobility_flow.png',
+  'Dumbbell Clean and Jerk Complex|dumbbell': '/exercise-images/dumbbell/dumbbell_clean_and_jerk_complex.png',
+  'Dumbbell Turkish Get-Up Flow|dumbbell': '/exercise-images/dumbbell/dumbbell_turkish_get_up_flow.png',
+  'Dumbbell Clean Walking Lunge|dumbbell': '/exercise-images/dumbbell/dumbbell_clean_walking_lunge.png',
+  'Dumbbell Turkish Get-Up Complex|dumbbell': '/exercise-images/dumbbell/dumbbell_turkish_get_up_complex.png',
+  'Full-Body Ground Flow|bodyweight': '/exercise-images/bodyweight/full_body_ground_flow.png',
+  'Hip Mobility Master Flow|bodyweight': '/exercise-images/bodyweight/hip_mobility_master_flow.png',
+  'Burpee Tuck Jump Broad Jump|bodyweight': '/exercise-images/bodyweight/burpee_tuck_jump_broad_jump.png',
+  'Double KB Clean Front Squat|kettlebell': '/exercise-images/kettlebell/double_kb_clean_front_squat.png',
+  'Double KB Snatch|kettlebell': '/exercise-images/kettlebell/double_kb_snatch.png',
   // Batch 80 additions:
   'Broad Jump + Burpee + High Knees|bodyweight': '/exercise-images/bodyweight/broad_jump_burpee_high_knees.png',
   'Double KB Front Squat to Press|kettlebell': '/exercise-images/kettlebell/double_kb_front_squat_to_press.png',
