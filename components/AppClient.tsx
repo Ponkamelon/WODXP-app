@@ -443,6 +443,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 88 additions:
+  'Bear Crawl Tuck Jump Complex|bodyweight': '/exercise-images/bodyweight/bear_crawl_tuck_jump_complex.png',
+  'Burpee + Tuck + 180 Complex|bodyweight': '/exercise-images/bodyweight/burpee_tuck_180_complex.png',
+  'Double KB Long Cycle|kettlebell': '/exercise-images/kettlebell/double_kb_long_cycle.png',
+  'Dumbbell Devil Press Complex|dumbbell': '/exercise-images/dumbbell/dumbbell_devil_press_complex.png',
+  'Dumbbell Renegade Row Thruster|dumbbell': '/exercise-images/dumbbell/dumbbell_renegade_row_thruster.png',
+  'Dumbbell Snatch Overhead Walking Lunge|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch_overhead_walking_lunge.png',
+  'Dumbbell Windmill Overhead Squat Flow|dumbbell': '/exercise-images/dumbbell/dumbbell_windmill_overhead_squat_flow.png',
+  'Full Hip Mobility Flow|bodyweight': '/exercise-images/bodyweight/full_hip_mobility_flow.png',
+  'KB Turkish Get-Up to Overhead Lunge|kettlebell': '/exercise-images/kettlebell/kb_turkish_get_up_to_overhead_lunge.png',
+  'Burpee Broad Jump Lateral Shuffle|bodyweight': '/exercise-images/bodyweight/burpee_broad_jump_lateral_shuffle.png',
   // Batch 87 additions:
   'Deep Squat Ground Transition|bodyweight': '/exercise-images/bodyweight/deep_squat_ground_transition.png',
   'Dumbbell Man Maker to Lunge|dumbbell': '/exercise-images/dumbbell/dumbbell_man_maker_to_lunge.png',
