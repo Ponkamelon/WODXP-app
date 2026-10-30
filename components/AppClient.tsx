@@ -2541,51 +2541,100 @@ function isHoldExercise(ex: { name: string; default_reps: number }): boolean {
   return /(plank|\bhold\b|wall sit|l-sit|hollow)/i.test(n) || (ex.default_reps === 1 && /stretch/i.test(n));
 }
 
-/** Short beep + vibration when a hold ends. Silent where the browser blocks audio. */
-function holdFinishedSignal() {
+/** Audio + vibration cues for the hold timer. Silent where the browser blocks them. */
+function holdBeep(freqs: number[], vibrate: number[]) {
   try {
     const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
     if (Ctx) {
       const ctx = new Ctx();
-      [0, 0.25, 0.5].forEach((t) => {
+      freqs.forEach((f, i) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.frequency.value = t === 0.5 ? 1100 : 780;
+        osc.frequency.value = f;
         gain.gain.value = 0.15;
         osc.connect(gain); gain.connect(ctx.destination);
-        osc.start(ctx.currentTime + t); osc.stop(ctx.currentTime + t + 0.15);
+        osc.start(ctx.currentTime + i * 0.25); osc.stop(ctx.currentTime + i * 0.25 + 0.15);
       });
-      setTimeout(() => ctx.close?.(), 1200);
+      setTimeout(() => ctx.close?.(), 400 + freqs.length * 250);
     }
   } catch { /* audio unavailable */ }
-  try { navigator.vibrate?.([200, 100, 200]); } catch { /* vibration unavailable */ }
+  try { navigator.vibrate?.(vibrate); } catch { /* vibration unavailable */ }
 }
+const holdRepDoneSignal = () => holdBeep([780], [200]);            // a hold ended, rest begins
+const holdGoSignal = () => holdBeep([1100], [100]);                 // rest ended, next hold begins
+const holdSetDoneSignal = () => holdBeep([780, 780, 1100], [200, 100, 200, 100, 300]); // whole set finished
 
-function HoldTimer({ accent }: { accent: string }) {
+const HOLD_REST_SECONDS = 3;
+
+/**
+ * Hands-free timer for a set of holds: counts down the hold time for each rep,
+ * takes a 3 s rest between reps, and starts the next rep by itself — so you can
+ * keep holding the weight for the whole set. After the last rep it resets, ready
+ * for the next set.
+ */
+function HoldTimer({ accent, reps }: { accent: string; reps: number }) {
   const [open, setOpen] = useState(false);
   const [target, setTarget] = useState(30);
   const [remaining, setRemaining] = useState(30);
   const [running, setRunning] = useState(false);
-  const [finished, setFinished] = useState(false);
+  const [view, setView] = useState<{ phase: 'idle' | 'hold' | 'rest' | 'done'; rep: number }>({ phase: 'idle', rep: 0 });
+  const phaseRef = React.useRef<'idle' | 'hold' | 'rest' | 'done'>('idle');
+  const repRef = React.useRef(0);
   const endRef = React.useRef(0);
+  const repsRef = React.useRef(reps);
+  const targetRef = React.useRef(target);
+  repsRef.current = reps;
+  targetRef.current = target;
   useWakeLock(running);
+
+  const sync = () => setView({ phase: phaseRef.current, rep: repRef.current });
 
   React.useEffect(() => {
     if (!running) return;
     const id = setInterval(() => {
       const left = Math.max(0, Math.ceil((endRef.current - Date.now()) / 1000));
       setRemaining(left);
-      if (left <= 0) { setRunning(false); setFinished(true); holdFinishedSignal(); }
+      if (left > 0) return;
+      if (phaseRef.current === 'hold') {
+        if (repRef.current < repsRef.current) {
+          phaseRef.current = 'rest';
+          endRef.current = Date.now() + HOLD_REST_SECONDS * 1000;
+          setRemaining(HOLD_REST_SECONDS);
+          holdRepDoneSignal();
+        } else {
+          phaseRef.current = 'done';
+          setRunning(false);
+          setRemaining(targetRef.current); // ready for the next set
+          holdSetDoneSignal();
+        }
+      } else if (phaseRef.current === 'rest') {
+        phaseRef.current = 'hold';
+        repRef.current += 1;
+        endRef.current = Date.now() + targetRef.current * 1000;
+        setRemaining(targetRef.current);
+        holdGoSignal();
+      }
+      sync();
     }, 200);
     return () => clearInterval(id);
   }, [running]);
 
-  const start = () => { endRef.current = Date.now() + remaining * 1000; setFinished(false); setRunning(true); };
+  const midSet = view.phase === 'hold' || view.phase === 'rest';
+  const start = () => {
+    if (!midSet) { // fresh start (also after a finished set)
+      phaseRef.current = 'hold'; repRef.current = 1;
+      endRef.current = Date.now() + target * 1000;
+      setRemaining(target);
+    } else { // resume after pause
+      endRef.current = Date.now() + remaining * 1000;
+    }
+    sync(); setRunning(true);
+  };
   const pause = () => setRunning(false);
-  const reset = () => { setRunning(false); setFinished(false); setRemaining(target); };
+  const reset = () => { setRunning(false); phaseRef.current = 'idle'; repRef.current = 0; setRemaining(target); sync(); };
   const adjust = (delta: number) => {
     const next = Math.min(300, Math.max(5, target + delta));
-    setTarget(next); setRemaining(next); setFinished(false);
+    setTarget(next); setRemaining(next); phaseRef.current = 'idle'; repRef.current = 0; sync();
   };
 
   if (!open) {
@@ -2596,26 +2645,29 @@ function HoldTimer({ accent }: { accent: string }) {
       </button>
     );
   }
+  const resting = view.phase === 'rest';
+  const statusText = view.phase === 'done' ? `All ${reps} hold${reps > 1 ? 's' : ''} done! Tap Complete Set.`
+    : resting ? `Rest — rep ${view.rep + 1} of ${reps} starts in ${remaining}…`
+    : view.phase === 'hold' ? (reps > 1 ? `Rep ${view.rep} of ${reps} — hold steady…` : 'Hold steady…')
+    : `${reps} × ${target} sec hold${reps > 1 ? `, ${HOLD_REST_SECONDS} sec rest between` : ''} — adjust with − / +`;
   return (
     <div className="mt-3 rounded-xl border px-3 py-3" style={{ borderColor: `${accent}88`, backgroundColor: `${accent}10` }}>
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: C.muted, ...SG }}>Hold timer</span>
+        <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: C.muted, ...SG }}>Hold timer{reps > 1 ? ` · ${reps} reps` : ''}</span>
         <button onClick={() => { setRunning(false); setOpen(false); }} aria-label="Close timer" className="px-1 text-lg leading-none" style={{ color: C.muted }}>×</button>
       </div>
       <div className="mt-1 flex items-center justify-center gap-4">
-        <button onClick={() => adjust(-5)} disabled={running} className="flex h-9 w-9 items-center justify-center rounded-full border disabled:opacity-40" style={{ borderColor: C.border, color: C.text }}><Minus size={14} /></button>
-        <span className="text-4xl font-bold" style={{ color: finished ? C.xp : C.text, ...MO }}>{formatClock(remaining)}</span>
-        <button onClick={() => adjust(5)} disabled={running} className="flex h-9 w-9 items-center justify-center rounded-full border disabled:opacity-40" style={{ borderColor: C.border, color: C.text }}><Plus size={14} /></button>
+        <button onClick={() => adjust(-5)} disabled={running || midSet} className="flex h-9 w-9 items-center justify-center rounded-full border disabled:opacity-40" style={{ borderColor: C.border, color: C.text }}><Minus size={14} /></button>
+        <span className="text-4xl font-bold" style={{ color: view.phase === 'done' ? C.xp : resting ? C.muted : C.text, ...MO }}>{formatClock(remaining)}</span>
+        <button onClick={() => adjust(5)} disabled={running || midSet} className="flex h-9 w-9 items-center justify-center rounded-full border disabled:opacity-40" style={{ borderColor: C.border, color: C.text }}><Plus size={14} /></button>
       </div>
-      <p className="mt-1 text-center text-[11px]" style={{ color: finished ? C.xp : C.muted }}>
-        {finished ? 'Time! Release and tap Complete Set.' : running ? 'Hold steady…' : `${target} sec hold — adjust with − / +`}
-      </p>
+      <p className="mt-1 text-center text-[11px]" style={{ color: view.phase === 'done' ? C.xp : C.muted }}>{statusText}</p>
       <div className="mt-3 grid grid-cols-2 gap-2">
         {running ? (
           <button onClick={pause} className="rounded-xl border py-2.5 text-sm font-bold" style={{ borderColor: C.border, color: C.text, ...SG }}>Pause</button>
         ) : (
-          <button onClick={start} disabled={remaining <= 0} className="rounded-xl py-2.5 text-sm font-bold disabled:opacity-40" style={{ backgroundColor: accent, color: '#04140A', ...SG }}>
-            {remaining < target && remaining > 0 ? 'Resume' : 'Start'}
+          <button onClick={start} className="rounded-xl py-2.5 text-sm font-bold" style={{ backgroundColor: accent, color: '#04140A', ...SG }}>
+            {midSet ? 'Resume' : view.phase === 'done' ? 'Start next set' : 'Start'}
           </button>
         )}
         <button onClick={reset} className="rounded-xl border py-2.5 text-sm font-bold" style={{ borderColor: C.border, color: C.muted, ...SG }}>Reset</button>
@@ -2791,7 +2843,7 @@ function WorkoutScreen({ exercises: initialExercises, pool, userId, durationMinu
                 <Stepper label="Reps" value={log.reps} onChange={(v) => setLogs((p) => ({ ...p, [ex.id]: { ...p[ex.id], reps: v } }))} step={1} unit="reps" min={1} />
                 <Stepper label="Sets" value={log.sets} onChange={(v) => { setLogs((p) => ({ ...p, [ex.id]: { ...p[ex.id], sets: v } })); if (!isDone && (setsDone[ex.id] ?? 0) >= v) markExerciseDone(ex.id); }} step={1} unit="sets" min={1} />
               </div>
-              {!isDone && isHoldExercise(ex) && <HoldTimer key={ex.id} accent={EQUIPMENT_COLORS[equipment]} />}
+              {!isDone && isHoldExercise(ex) && <HoldTimer key={ex.id} accent={EQUIPMENT_COLORS[equipment]} reps={log.reps} />}
               <LedBorderButton onClick={() => completeSet(ex.id, log.sets)} disabled={isDone} radius={12}
                 className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-3 font-bold"
                 style={{ backgroundColor: isDone ? C.raised : C.xp, color: isDone ? C.xp : '#04140A', ...SG }}>
