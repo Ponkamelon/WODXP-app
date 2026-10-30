@@ -3632,7 +3632,7 @@ function InstallGuideModal({ installEvent, onClose, onInstalled }: {
   );
 }
 
-function ProfileMenu({ userId, username, onLogout, onPrivacy, onInstall, allTimeStats }: { userId: string; username: string; onLogout: () => void; onPrivacy: () => void; onInstall: (() => void) | null; allTimeStats: AllTimeStats }) {
+function ProfileMenu({ userId, username, onLogout, onPrivacy, onInstall, installed, allTimeStats }: { userId: string; username: string; onLogout: () => void; onPrivacy: () => void; onInstall: () => void; installed: boolean; allTimeStats: AllTimeStats }) {
   return (
     <div className="min-h-screen pb-24" style={{ backgroundColor: C.bg }}>
       <header className="px-5 pt-6 pb-4">
@@ -3649,12 +3649,10 @@ function ProfileMenu({ userId, username, onLogout, onPrivacy, onInstall, allTime
       </div>
 
       <div className="px-5 pt-6 flex flex-col gap-3">
-        {onInstall && (
-          <button onClick={onInstall} className="flex w-full items-center justify-between rounded-2xl border py-4 px-5 text-sm font-bold" style={{ borderColor: C.border, color: C.text, backgroundColor: C.surface, ...SG }}>
-            Add to Home Screen
-            <ChevronRight size={16} style={{ color: C.muted }} />
-          </button>
-        )}
+        <button onClick={onInstall} className="flex w-full items-center justify-between rounded-2xl border py-4 px-5 text-sm font-bold" style={{ borderColor: C.border, color: C.text, backgroundColor: C.surface, ...SG }}>
+          <span>Add to Home Screen{installed && <span className="ml-2 text-xs font-medium" style={{ color: C.xp }}>Installed ✓</span>}</span>
+          <ChevronRight size={16} style={{ color: C.muted }} />
+        </button>
         <button onClick={onPrivacy} className="flex w-full items-center justify-between rounded-2xl border py-4 px-5 text-sm font-bold" style={{ borderColor: C.border, color: C.text, backgroundColor: C.surface, ...SG }}>
           Privacy Policy
           <ChevronRight size={16} style={{ color: C.muted }} />
@@ -4882,7 +4880,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     onOpen={(t) => { setSelectedTestId(t.id); setScreen('test'); }} />;
   else if (tab === 'exercises') content = <ExercisesScreen exercises={exercises} />;
   else if (tab === 'stats') content = <StatsScreen stats={stats} records={exerciseRecords} exercises={exercises} />;
-  else if (tab === 'profile') content = <ProfileMenu userId={user.id} username={user.username} onLogout={handleLogout} onPrivacy={() => router.push('/privacy')} onInstall={installAvailable ? () => setShowInstallGuide(true) : null} allTimeStats={allTimeStats} />;
+  else if (tab === 'profile') content = <ProfileMenu userId={user.id} username={user.username} onLogout={handleLogout} onPrivacy={() => router.push('/privacy')} onInstall={() => setShowInstallGuide(true)} installed={installed} allTimeStats={allTimeStats} />;
 
   return (
     <div style={{ backgroundColor: C.bg }}>
