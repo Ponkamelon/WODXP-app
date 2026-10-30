@@ -443,6 +443,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 86 additions:
+  'Dumbbell Devil Press to Thruster|dumbbell': '/exercise-images/dumbbell/dumbbell_devil_press_to_thruster.png',
+  'Dumbbell Front Rack Walking Lunge to Press|dumbbell': '/exercise-images/dumbbell/dumbbell_front_rack_walking_lunge_to_press.png',
+  'Dumbbell Overhead Cossack Complex|dumbbell': '/exercise-images/dumbbell/dumbbell_overhead_cossack_complex.png',
+  'Dumbbell Renegade Row to Burpee|dumbbell': '/exercise-images/dumbbell/dumbbell_renegade_row_to_burpee.png',
+  'Ground Flow to Standing Balance|bodyweight': '/exercise-images/bodyweight/ground_flow_to_standing_balance.png',
+  'KB Bottom-Up Windmill|kettlebell': '/exercise-images/kettlebell/kb_bottom_up_windmill.png',
+  'Skater Jump Burpee Complex|bodyweight': '/exercise-images/bodyweight/skater_jump_burpee_complex.png',
+  'Burpee Broad Jump Tuck Complex|bodyweight': '/exercise-images/bodyweight/burpee_broad_jump_tuck_complex.png',
+  'Double KB Bulgarian Split Squat|kettlebell': '/exercise-images/kettlebell/double_kb_bulgarian_split_squat.png',
+  'Double KB Clean Thruster|kettlebell': '/exercise-images/kettlebell/double_kb_clean_thruster.png',
   // Batch 85 additions:
   'Dumbbell Renegade Row Push-Up Complex|dumbbell': '/exercise-images/dumbbell/dumbbell_renegade_row_push_up_complex.png',
   'Hip Airplane to Deep Squat|bodyweight': '/exercise-images/bodyweight/hip_airplane_to_deep_squat.png',
