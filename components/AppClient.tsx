@@ -1476,27 +1476,47 @@ function HomeScreen({ user, stats, onGenerate, onChallenge, onBoss, levelChallen
 }
 
 /**
+ * Weighted random order (Efraimidis–Spirakis): higher weight → likelier to come
+ * first, but anything can still land anywhere, so generations keep varying.
+ */
+function weightedShuffle<T>(items: T[], weight: (item: T) => number): T[] {
+  return items
+    .map((item) => ({ item, key: -Math.log(1 - Math.random()) / Math.max(weight(item), 0.0001) }))
+    .sort((a, b) => a.key - b.key)
+    .map((x) => x.item);
+}
+
+/** How strongly to favour an exercise: never done = 1, done once ≈ 0.35, four times ≈ 0.09. */
+function leastDoneWeight(ex: Exercise, records?: Record<string, ExerciseRecord>): number {
+  const times = records?.[ex.id]?.times ?? 0;
+  return Math.max(0.02, 1 / Math.pow(1 + times, 1.5));
+}
+
+/**
  * Picks a varied set of exercises for a generated workout, cycling through
  * distinct categories (squat, push, pull, hinge, carry, core, mobility,
  * conditioning) before ever repeating one — so a generated session doesn't
  * end up as e.g. three squat variants back to back just because they all
- * matched the equipment filter.
+ * matched the equipment filter. Within that, exercises the user has done
+ * least (per `records`) are favoured; `excludeIds` are never picked.
  */
-function pickVariedExercises(pool: Exercise[], count: number): Exercise[] {
-  if (pool.length <= count) return [...pool].sort(() => Math.random() - 0.5);
+function pickVariedExercises(pool: Exercise[], count: number, records?: Record<string, ExerciseRecord>, excludeIds?: Set<string>): Exercise[] {
+  const candidates = excludeIds ? pool.filter((ex) => !excludeIds.has(ex.id)) : pool;
+  if (candidates.length <= count) return weightedShuffle(candidates, (ex) => leastDoneWeight(ex, records));
 
   const byCategory = new Map<string, Exercise[]>();
-  for (const ex of pool) {
+  for (const ex of candidates) {
     if (!byCategory.has(ex.category)) byCategory.set(ex.category, []);
     byCategory.get(ex.category)!.push(ex);
   }
-  // Shuffle within each category so repeated generations still vary
-  for (const group of byCategory.values()) {
-    group.sort(() => Math.random() - 0.5);
+  // Weighted shuffle within each category: least-done first, still varied
+  for (const [cat, group] of byCategory) {
+    byCategory.set(cat, weightedShuffle(group, (ex) => leastDoneWeight(ex, records)));
   }
 
-  // Shuffle the category order itself each time too
-  const categories = [...byCategory.keys()].sort(() => Math.random() - 0.5);
+  // Category order is random too, leaning towards categories that still hold
+  // an exercise the user has barely tried.
+  const categories = weightedShuffle([...byCategory.keys()], (cat) => Math.max(...byCategory.get(cat)!.map((ex) => leastDoneWeight(ex, records))));
 
   const selected: Exercise[] = [];
   const usedIds = new Set<string>();
@@ -2277,7 +2297,7 @@ function WodResultScreen({ result, wod, onHome }: {
   );
 }
 
-function GeneratorScreen({ exercises, totalExerciseCount, onBack, onStart }: { exercises: Exercise[]; totalExerciseCount: number; onBack: () => void; onStart: (exs: Exercise[], durationMinutes: number) => void }) {
+function GeneratorScreen({ exercises, totalExerciseCount, records, onBack, onStart }: { exercises: Exercise[]; totalExerciseCount: number; records: Record<string, ExerciseRecord>; onBack: () => void; onStart: (exs: Exercise[], durationMinutes: number) => void }) {
   const [equipment, setEquipment] = useState<Set<'kettlebell' | 'dumbbell' | 'bodyweight'>>(
     new Set(['kettlebell', 'dumbbell', 'bodyweight'])
   );
@@ -2305,7 +2325,7 @@ function GeneratorScreen({ exercises, totalExerciseCount, onBack, onStart }: { e
     const equipmentPool = exercises.filter((ex) => ex.equipment.some((e) => equipment.has(e as 'kettlebell' | 'dumbbell' | 'bodyweight')));
     const pool = goal === 'mixed' ? equipmentPool : equipmentPool.filter((ex) => ex.primary_attribute === goal);
     const count = duration <= 10 ? 3 : duration <= 20 ? 4 : duration <= 30 ? 5 : 6;
-    const picked = pickVariedExercises(pool.length > 0 ? pool : equipmentPool, count);
+    const picked = pickVariedExercises(pool.length > 0 ? pool : equipmentPool, count, records);
     setTimeout(() => onStart(picked, duration), 750);
   };
 
@@ -2333,6 +2353,7 @@ function GeneratorScreen({ exercises, totalExerciseCount, onBack, onStart }: { e
             <Sparkles size={11} style={{ color: C.mobility }} />
             <span style={MO}>{exercises.length}</span> of <span style={MO}>{totalExerciseCount}</span> movements unlocked
           </p>
+          <p className="mt-0.5 text-[11px]" style={{ color: C.muted }}>Favours moves you&apos;ve done least — new ones come first.</p>
         </div>
       </div>
       <div className="flex flex-col gap-6">
@@ -4709,7 +4730,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     <>
       <GlobalStyle />
       <PageTransition screenKey={screen}>
-        <GeneratorScreen exercises={exercises} totalExerciseCount={totalExerciseCount} onBack={() => setScreen('tab')}
+        <GeneratorScreen exercises={exercises} totalExerciseCount={totalExerciseCount} records={exerciseRecords} onBack={() => setScreen('tab')}
           onStart={(exs, durationMinutes) => {
             setSessionExercises(exs);
             setSessionDurationMinutes(durationMinutes);
