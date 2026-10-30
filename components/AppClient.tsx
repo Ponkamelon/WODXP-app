@@ -2465,6 +2465,98 @@ function computeExerciseXp(ex: Exercise, log: { weight: number; reps: number; se
   return Math.max(0, ex.xp_value + adjustment);
 }
 
+/** Static holds (plank, wall sit, farmer hold…) get a timer in the workout.
+ *  The database has no "hold" flag, so this is decided from the name: dynamic
+ *  plank/hold variants (rows, drags, taps, sit-ups, dead bugs…) are excluded. */
+function isHoldExercise(ex: { name: string; default_reps: number }): boolean {
+  const n = ex.name;
+  if (/\b(row|drag|pull-through|tap|up-down|complex|sit-up|deadlift|dead bug|carry|press|get-up|lean|bridge progression)\b/i.test(n)) return false;
+  return /(plank|\bhold\b|wall sit|l-sit|hollow)/i.test(n) || (ex.default_reps === 1 && /stretch/i.test(n));
+}
+
+/** Short beep + vibration when a hold ends. Silent where the browser blocks audio. */
+function holdFinishedSignal() {
+  try {
+    const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+    if (Ctx) {
+      const ctx = new Ctx();
+      [0, 0.25, 0.5].forEach((t) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.frequency.value = t === 0.5 ? 1100 : 780;
+        gain.gain.value = 0.15;
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + t); osc.stop(ctx.currentTime + t + 0.15);
+      });
+      setTimeout(() => ctx.close?.(), 1200);
+    }
+  } catch { /* audio unavailable */ }
+  try { navigator.vibrate?.([200, 100, 200]); } catch { /* vibration unavailable */ }
+}
+
+function HoldTimer({ accent }: { accent: string }) {
+  const [open, setOpen] = useState(false);
+  const [target, setTarget] = useState(30);
+  const [remaining, setRemaining] = useState(30);
+  const [running, setRunning] = useState(false);
+  const [finished, setFinished] = useState(false);
+  const endRef = React.useRef(0);
+  useWakeLock(running);
+
+  React.useEffect(() => {
+    if (!running) return;
+    const id = setInterval(() => {
+      const left = Math.max(0, Math.ceil((endRef.current - Date.now()) / 1000));
+      setRemaining(left);
+      if (left <= 0) { setRunning(false); setFinished(true); holdFinishedSignal(); }
+    }, 200);
+    return () => clearInterval(id);
+  }, [running]);
+
+  const start = () => { endRef.current = Date.now() + remaining * 1000; setFinished(false); setRunning(true); };
+  const pause = () => setRunning(false);
+  const reset = () => { setRunning(false); setFinished(false); setRemaining(target); };
+  const adjust = (delta: number) => {
+    const next = Math.min(300, Math.max(5, target + delta));
+    setTarget(next); setRemaining(next); setFinished(false);
+  };
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-bold"
+        style={{ borderColor: `${accent}88`, color: accent, backgroundColor: `${accent}10`, ...SG }}>
+        <Timer size={14} /> Hold timer
+      </button>
+    );
+  }
+  return (
+    <div className="mt-3 rounded-xl border px-3 py-3" style={{ borderColor: `${accent}88`, backgroundColor: `${accent}10` }}>
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: C.muted, ...SG }}>Hold timer</span>
+        <button onClick={() => { setRunning(false); setOpen(false); }} aria-label="Close timer" className="px-1 text-lg leading-none" style={{ color: C.muted }}>×</button>
+      </div>
+      <div className="mt-1 flex items-center justify-center gap-4">
+        <button onClick={() => adjust(-5)} disabled={running} className="flex h-9 w-9 items-center justify-center rounded-full border disabled:opacity-40" style={{ borderColor: C.border, color: C.text }}><Minus size={14} /></button>
+        <span className="text-4xl font-bold" style={{ color: finished ? C.xp : C.text, ...MO }}>{formatClock(remaining)}</span>
+        <button onClick={() => adjust(5)} disabled={running} className="flex h-9 w-9 items-center justify-center rounded-full border disabled:opacity-40" style={{ borderColor: C.border, color: C.text }}><Plus size={14} /></button>
+      </div>
+      <p className="mt-1 text-center text-[11px]" style={{ color: finished ? C.xp : C.muted }}>
+        {finished ? 'Time! Release and tap Complete Set.' : running ? 'Hold steady…' : `${target} sec hold — adjust with − / +`}
+      </p>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        {running ? (
+          <button onClick={pause} className="rounded-xl border py-2.5 text-sm font-bold" style={{ borderColor: C.border, color: C.text, ...SG }}>Pause</button>
+        ) : (
+          <button onClick={start} disabled={remaining <= 0} className="rounded-xl py-2.5 text-sm font-bold disabled:opacity-40" style={{ backgroundColor: accent, color: '#04140A', ...SG }}>
+            {remaining < target && remaining > 0 ? 'Resume' : 'Start'}
+          </button>
+        )}
+        <button onClick={reset} className="rounded-xl border py-2.5 text-sm font-bold" style={{ borderColor: C.border, color: C.muted, ...SG }}>Reset</button>
+      </div>
+    </div>
+  );
+}
+
 function WorkoutScreen({ exercises, userId, durationMinutes, records, onBack, onFinish }: { exercises: Exercise[]; userId: string; durationMinutes: number; records: Record<string, ExerciseRecord>; onBack: () => void; onFinish: (requestedXp: number, grantedXp: number, doneLogs: { exerciseId: string; weight: number; reps: number }[]) => void }) {
   // Captured once, when the workout screen first mounts — i.e. when the
   // user actually starts training. Without this, the session row would
@@ -2600,6 +2692,7 @@ function WorkoutScreen({ exercises, userId, durationMinutes, records, onBack, on
                 <Stepper label="Reps" value={log.reps} onChange={(v) => setLogs((p) => ({ ...p, [ex.id]: { ...p[ex.id], reps: v } }))} step={1} unit="reps" min={1} />
                 <Stepper label="Sets" value={log.sets} onChange={(v) => { setLogs((p) => ({ ...p, [ex.id]: { ...p[ex.id], sets: v } })); if (!isDone && (setsDone[ex.id] ?? 0) >= v) markExerciseDone(ex.id); }} step={1} unit="sets" min={1} />
               </div>
+              {!isDone && isHoldExercise(ex) && <HoldTimer key={ex.id} accent={EQUIPMENT_COLORS[equipment]} />}
               <LedBorderButton onClick={() => completeSet(ex.id, log.sets)} disabled={isDone} radius={12}
                 className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-3 font-bold"
                 style={{ backgroundColor: isDone ? C.raised : C.xp, color: isDone ? C.xp : '#04140A', ...SG }}>
