@@ -443,6 +443,16 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 85 additions:
+  'Dumbbell Renegade Row Push-Up Complex|dumbbell': '/exercise-images/dumbbell/dumbbell_renegade_row_push_up_complex.png',
+  'Hip Airplane to Deep Squat|bodyweight': '/exercise-images/bodyweight/hip_airplane_to_deep_squat.png',
+  'KB Turkish Get-Up to Windmill|kettlebell': '/exercise-images/kettlebell/kb_turkish_get_up_to_windmill.png',
+  'Shin Box to Cossack Flow|bodyweight': '/exercise-images/bodyweight/shin_box_to_cossack_flow.png',
+  'Advanced Cossack Rotation|bodyweight': '/exercise-images/bodyweight/advanced_cossack_rotation.png',
+  'Burpee + Tuck + Lateral Jump|bodyweight': '/exercise-images/bodyweight/burpee_tuck_lateral_jump.png',
+  'Double KB Front Rack Walking Lunge|kettlebell': '/exercise-images/kettlebell/double_kb_front_rack_walking_lunge.png',
+  'Double KB Push Jerk|kettlebell': '/exercise-images/kettlebell/double_kb_push_jerk.png',
+  'Double KB Renegade Row Push-Up|kettlebell': '/exercise-images/kettlebell/double_kb_renegade_row_push_up.png',
   // Batch 84 additions:
   'Cossack to Hip Airplane Flow|bodyweight': '/exercise-images/bodyweight/cossack_to_hip_airplane_flow.png',
   'Dumbbell Double Snatch to Squat|dumbbell': '/exercise-images/dumbbell/dumbbell_double_snatch_to_squat.png',
@@ -3633,8 +3643,8 @@ interface FitnessTestResult {
   id: string; test_id: string; value: number; weight_kg: number | null;
   workouts_at_test: number; created_at: string;
 }
-/** Illustration shown with each test — reuses the matching exercise illustration.
- *  Dead Hang has none yet; add a dedicated image path here when one exists. */
+/** Illustration shown with each test — reuses the matching exercise illustration;
+ *  Dead Hang has its own dedicated image. */
 const FITNESS_TEST_IMAGES: Record<string, string | undefined> = {
   pushup: EXERCISE_ILLUSTRATION_IMAGES['Push-Up|bodyweight'],
   airsquat: EXERCISE_ILLUSTRATION_IMAGES['Bodyweight Squat|bodyweight'],
@@ -3647,6 +3657,7 @@ const FITNESS_TEST_IMAGES: Record<string, string | undefined> = {
   kbswing: EXERCISE_ILLUSTRATION_IMAGES['Kettlebell Swing|kettlebell'],
   lunge: EXERCISE_ILLUSTRATION_IMAGES['Walking Lunge|bodyweight'],
   farmerhold: EXERCISE_ILLUSTRATION_IMAGES['KB Farmer Hold|kettlebell'],
+  deadhang: '/exercise-images/bodyweight/dead_hang.png', // dedicated image (no matching exercise row)
 };
 
 /** After this many workouts since the last attempt, Home nudges the user to retest. */
