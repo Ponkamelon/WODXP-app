@@ -2366,7 +2366,9 @@ function GeneratorScreen({ exercises, totalExerciseCount, records, onBack, onSta
     // computed immediately, but onStart is deferred ~750ms so the pulse
     // sequence has time to play instead of instantly jumping to Safety.
     setBuilding(true);
-    const equipmentPool = exercises.filter((ex) => ex.equipment.some((e) => equipment.has(e as 'kettlebell' | 'dumbbell' | 'bodyweight')));
+    // Match on the equipment the exercise is SHOWN with (kettlebell wins for the two
+    // exercises tagged for both), so a dumbbell-only session never contains a "KB" card.
+    const equipmentPool = exercises.filter((ex) => equipment.has(pickPrimaryEquipment(ex.equipment)));
     const pool = goal === 'mixed' ? equipmentPool : equipmentPool.filter((ex) => ex.primary_attribute === goal);
     const count = duration <= 10 ? 3 : duration <= 20 ? 4 : duration <= 30 ? 5 : 6;
     const picked = pickVariedExercises(pool.length > 0 ? pool : equipmentPool, count, records);
