@@ -443,6 +443,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 87 additions:
+  'Deep Squat Ground Transition|bodyweight': '/exercise-images/bodyweight/deep_squat_ground_transition.png',
+  'Dumbbell Man Maker to Lunge|dumbbell': '/exercise-images/dumbbell/dumbbell_man_maker_to_lunge.png',
+  'Dumbbell Overhead Bulgarian Split Squat|dumbbell': '/exercise-images/dumbbell/dumbbell_overhead_bulgarian_split_squat.png',
+  'Dumbbell Squat Clean Thruster|dumbbell': '/exercise-images/dumbbell/dumbbell_squat_clean_thruster.png',
+  'Dumbbell Turkish Get-Up with Overhead Lunge|dumbbell': '/exercise-images/dumbbell/dumbbell_turkish_get_up_with_overhead_lunge.png',
+  'Hip Airplane Lunge Flow|bodyweight': '/exercise-images/bodyweight/hip_airplane_lunge_flow.png',
+  'Jumping Lunge Mountain Climber Complex|bodyweight': '/exercise-images/bodyweight/jumping_lunge_mountain_climber_complex.png',
+  'KB Snatch Turkish Get-Down|kettlebell': '/exercise-images/kettlebell/kb_snatch_turkish_get_down.png',
+  'Advanced Crab Flow|bodyweight': '/exercise-images/bodyweight/advanced_crab_flow.png',
+  'Double KB Front Squat Thruster|kettlebell': '/exercise-images/kettlebell/double_kb_front_squat_thruster.png',
   // Batch 86 additions:
   'Dumbbell Devil Press to Thruster|dumbbell': '/exercise-images/dumbbell/dumbbell_devil_press_to_thruster.png',
   'Dumbbell Front Rack Walking Lunge to Press|dumbbell': '/exercise-images/dumbbell/dumbbell_front_rack_walking_lunge_to_press.png',
