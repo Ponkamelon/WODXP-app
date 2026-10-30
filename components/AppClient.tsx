@@ -443,6 +443,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 89 additions:
+  'Cossack to Ground Flow|bodyweight': '/exercise-images/bodyweight/cossack_to_ground_flow.png',
+  'Double KB Clean Walking Lunge|kettlebell': '/exercise-images/kettlebell/double_kb_clean_walking_lunge.png',
+  'Double KB Snatch to Squat|kettlebell': '/exercise-images/kettlebell/double_kb_snatch_to_squat.png',
+  'Dumbbell Clean-Jerk-Squat Complex|dumbbell': '/exercise-images/dumbbell/dumbbell_clean_jerk_squat_complex.png',
+  'Dumbbell Devil Press Reverse Lunge|dumbbell': '/exercise-images/dumbbell/dumbbell_devil_press_reverse_lunge.png',
+  'Dumbbell Turkish Get-Up Press Complex|dumbbell': '/exercise-images/dumbbell/dumbbell_turkish_get_up_press_complex.png',
+  'Hip Airplane to Shin Box|bodyweight': '/exercise-images/bodyweight/hip_airplane_to_shin_box.png',
+  'Jumping Lunge Tuck Jump Complex|bodyweight': '/exercise-images/bodyweight/jumping_lunge_tuck_jump_complex.png',
+  'KB Windmill to Overhead Squat|kettlebell': '/exercise-images/kettlebell/kb_windmill_to_overhead_squat.png',
+  'One-Arm Push-Up Progression|bodyweight': '/exercise-images/bodyweight/one_arm_push_up_progression.png',
   // Batch 88 additions:
   'Bear Crawl Tuck Jump Complex|bodyweight': '/exercise-images/bodyweight/bear_crawl_tuck_jump_complex.png',
   'Burpee + Tuck + 180 Complex|bodyweight': '/exercise-images/bodyweight/burpee_tuck_180_complex.png',
