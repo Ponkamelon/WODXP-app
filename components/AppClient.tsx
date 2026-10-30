@@ -1270,6 +1270,7 @@ function ExerciseIcon({ exercise, size = 40 }: { exercise: Exercise; size?: numb
     <img
       src={EQUIPMENT_ICON_IMAGES[equipment]}
       alt={equipment}
+      decoding="async"
       style={{ width: size, height: size, objectFit: 'contain' }}
     />
   );
@@ -2743,7 +2744,7 @@ function WorkoutScreen({ exercises: initialExercises, pool, userId, durationMinu
                 </div>
                 {!isDone && (setsDone[ex.id] ?? 0) === 0 && canSwap && (
                   <button onClick={() => swapExercise(exIndex)} aria-label={`Swap ${ex.name} for another exercise`}
-                    className="flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-0.5 self-start rounded-xl border transition-transform active:scale-95"
+                    className="flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl border transition-transform active:scale-95"
                     style={{ borderColor: C.border, color: C.muted, backgroundColor: C.raised }}>
                     <RefreshCw size={16} />
                     <span className="text-[9px] font-bold uppercase tracking-wider" style={SG}>Swap</span>
