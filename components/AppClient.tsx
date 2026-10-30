@@ -7,7 +7,7 @@ import { motion, useMotionValue, animate } from 'motion/react';
 import {
   Flame, ChevronRight, Search, Lock, Trophy, Swords, Plus, Crown,
   TrendingUp, Award, Sparkles, Target, Clock, Gauge,
-  Minus, Check, ArrowLeft, Users, Timer,
+  Minus, Check, ArrowLeft, Users, Timer, RefreshCw,
 } from 'lucide-react';
 import {
   CATEGORY_ICONS, CATEGORY_LABELS, EQUIPMENT_LABELS, EQUIPMENT_COLORS,
@@ -2297,7 +2297,7 @@ function WodResultScreen({ result, wod, onHome }: {
   );
 }
 
-function GeneratorScreen({ exercises, totalExerciseCount, records, onBack, onStart }: { exercises: Exercise[]; totalExerciseCount: number; records: Record<string, ExerciseRecord>; onBack: () => void; onStart: (exs: Exercise[], durationMinutes: number) => void }) {
+function GeneratorScreen({ exercises, totalExerciseCount, records, onBack, onStart }: { exercises: Exercise[]; totalExerciseCount: number; records: Record<string, ExerciseRecord>; onBack: () => void; onStart: (exs: Exercise[], durationMinutes: number, pool: Exercise[]) => void }) {
   const [equipment, setEquipment] = useState<Set<'kettlebell' | 'dumbbell' | 'bodyweight'>>(
     new Set(['kettlebell', 'dumbbell', 'bodyweight'])
   );
@@ -2326,7 +2326,7 @@ function GeneratorScreen({ exercises, totalExerciseCount, records, onBack, onSta
     const pool = goal === 'mixed' ? equipmentPool : equipmentPool.filter((ex) => ex.primary_attribute === goal);
     const count = duration <= 10 ? 3 : duration <= 20 ? 4 : duration <= 30 ? 5 : 6;
     const picked = pickVariedExercises(pool.length > 0 ? pool : equipmentPool, count, records);
-    setTimeout(() => onStart(picked, duration), 750);
+    setTimeout(() => onStart(picked, duration, pool.length > 0 ? pool : equipmentPool), 750);
   };
 
   const Opt = <T extends string | number>({ label, val, cur, set }: { label: string; val: T; cur: T; set: (v: T) => void }) => (
@@ -2578,15 +2578,19 @@ function HoldTimer({ accent }: { accent: string }) {
   );
 }
 
-function WorkoutScreen({ exercises, userId, durationMinutes, records, onBack, onFinish }: { exercises: Exercise[]; userId: string; durationMinutes: number; records: Record<string, ExerciseRecord>; onBack: () => void; onFinish: (requestedXp: number, grantedXp: number, doneLogs: { exerciseId: string; weight: number; reps: number }[]) => void }) {
+function WorkoutScreen({ exercises: initialExercises, pool, userId, durationMinutes, records, onBack, onFinish }: { exercises: Exercise[]; pool: Exercise[]; userId: string; durationMinutes: number; records: Record<string, ExerciseRecord>; onBack: () => void; onFinish: (requestedXp: number, grantedXp: number, doneLogs: { exerciseId: string; weight: number; reps: number }[]) => void }) {
   // Captured once, when the workout screen first mounts — i.e. when the
   // user actually starts training. Without this, the session row would
   // only get a started_at/completed_at pair at save time (both ~identical),
   // making "time trained" always compute to ~0 seconds.
   const [startedAt] = useState(() => new Date().toISOString());
+  // The session's exercises live in state so a single one can be swapped
+  // for another before its first set is logged.
+  const [exercises, setExercises] = useState<Exercise[]>(initialExercises);
   const [logs, setLogs] = useState<Record<string, { weight: number; reps: number; sets: number }>>(
-    Object.fromEntries(exercises.map((ex) => [ex.id, { weight: ex.default_weight_kg, reps: ex.default_reps, sets: ex.default_sets }]))
+    Object.fromEntries(initialExercises.map((ex) => [ex.id, { weight: ex.default_weight_kg, reps: ex.default_reps, sets: ex.default_sets }]))
   );
+  const seenIds = React.useRef<Set<string>>(new Set(initialExercises.map((e) => e.id)));
   const [done, setDone] = useState<Set<string>>(new Set());
   // Sets completed so far per exercise; an exercise is marked done once all its sets are logged.
   const [setsDone, setSetsDone] = useState<Record<string, number>>({});
@@ -2594,6 +2598,26 @@ function WorkoutScreen({ exercises, userId, durationMinutes, records, onBack, on
   const [viewing, setViewing] = useState<Exercise | null>(null);
   const allDone = done.size === exercises.length;
   const markExerciseDone = (id: string) => setDone((p) => new Set(p).add(id));
+  // Replace one exercise with a fresh pick from the same pool: never one already
+  // in the session, and preferring categories the rest of the session lacks
+  // (so five similar squats can be turned into something different).
+  // Exercises seen earlier this session are avoided until the pool runs dry.
+  const canSwap = pool.some((p) => !exercises.some((e) => e.id === p.id));
+  const swapExercise = (index: number) => {
+    const current = exercises[index];
+    const inSession = new Set(exercises.map((e) => e.id));
+    const otherCategories = new Set(exercises.filter((_, i) => i !== index).map((e) => e.category));
+    const fresh = pool.filter((p) => !inSession.has(p.id) && !seenIds.current.has(p.id));
+    const available = fresh.length > 0 ? fresh : pool.filter((p) => !inSession.has(p.id));
+    if (available.length === 0) return;
+    const differentCategory = available.filter((p) => !otherCategories.has(p.category));
+    const [replacement] = pickVariedExercises(differentCategory.length > 0 ? differentCategory : available, 1, records);
+    if (!replacement) return;
+    seenIds.current.add(replacement.id);
+    setExercises((prev) => prev.map((e, i) => (i === index ? replacement : e)));
+    setLogs((p) => ({ ...p, [replacement.id]: { weight: replacement.default_weight_kg, reps: replacement.default_reps, sets: replacement.default_sets } }));
+    setSetsDone((p) => { const n = { ...p }; delete n[current.id]; return n; });
+  };
   const completeSet = (id: string, totalSets: number) => {
     const next = (setsDone[id] ?? 0) + 1;
     setSetsDone((p) => ({ ...p, [id]: next }));
@@ -2690,7 +2714,7 @@ function WorkoutScreen({ exercises, userId, durationMinutes, records, onBack, on
                 <button onClick={() => setViewing(ex)} className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border transition-transform active:scale-95" style={{ backgroundColor: C.raised, borderColor: `${EQUIPMENT_COLORS[equipment]}CC`, boxShadow: `0 0 10px ${EQUIPMENT_COLORS[equipment]}44` }}>
                   <ExerciseIcon exercise={ex} size={40} />
                 </button>
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="font-bold" style={{ color: C.text, ...SG }}>{ex.name}</p>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <span className="text-xs capitalize" style={{ color: C.muted }}>{CATEGORY_LABELS[ex.category]}</span>
@@ -2707,6 +2731,14 @@ function WorkoutScreen({ exercises, userId, durationMinutes, records, onBack, on
                     <Search size={12} strokeWidth={3} style={{ color: EQUIPMENT_COLORS[equipment] }} /> Tap the icon to see how it&apos;s done
                   </p>
                 </div>
+                {!isDone && (setsDone[ex.id] ?? 0) === 0 && canSwap && (
+                  <button onClick={() => swapExercise(exIndex)} aria-label={`Swap ${ex.name} for another exercise`}
+                    className="flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-0.5 self-start rounded-xl border transition-transform active:scale-95"
+                    style={{ borderColor: C.border, color: C.muted, backgroundColor: C.raised }}>
+                    <RefreshCw size={16} />
+                    <span className="text-[9px] font-bold uppercase tracking-wider" style={SG}>Swap</span>
+                  </button>
+                )}
               </div>
               <div className="grid grid-cols-3 gap-1 rounded-xl border px-1 py-3" style={{ borderColor: C.border }}>
                 <Stepper label="Weight" value={log.weight} onChange={(v) => setLogs((p) => ({ ...p, [ex.id]: { ...p[ex.id], weight: v } }))} step={1} unit="kg" />
@@ -4402,6 +4434,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
   const [tab, setTab] = useState<Tab>('home');
   const [screen, setScreen] = useState<Screen>('tab');
   const [sessionExercises, setSessionExercises] = useState<Exercise[]>([]);
+  const [sessionPool, setSessionPool] = useState<Exercise[]>([]); // candidates for swapping a workout exercise
   const [sessionDurationMinutes, setSessionDurationMinutes] = useState(20);
   const [lastXP, setLastXP] = useState(0);
   const [sessionLevelUps, setSessionLevelUps] = useState<{ attribute: string; level: number }[]>([]);
@@ -4731,8 +4764,9 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
       <GlobalStyle />
       <PageTransition screenKey={screen}>
         <GeneratorScreen exercises={exercises} totalExerciseCount={totalExerciseCount} records={exerciseRecords} onBack={() => setScreen('tab')}
-          onStart={(exs, durationMinutes) => {
+          onStart={(exs, durationMinutes, pool) => {
             setSessionExercises(exs);
+            setSessionPool(pool);
             setSessionDurationMinutes(durationMinutes);
             const skip = typeof window !== 'undefined' && window.localStorage.getItem('wodxp_skip_safety_notice') === '1';
             setScreen(skip ? 'workout' : 'safety');
@@ -4752,7 +4786,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     <>
       <GlobalStyle />
       <PageTransition screenKey={screen}>
-        <WorkoutScreen exercises={sessionExercises} userId={user.id} durationMinutes={sessionDurationMinutes} records={exerciseRecords}
+        <WorkoutScreen exercises={sessionExercises} pool={sessionPool} userId={user.id} durationMinutes={sessionDurationMinutes} records={exerciseRecords}
           onBack={() => setScreen('tab')} onFinish={handleFinish} />
       </PageTransition>
     </>
