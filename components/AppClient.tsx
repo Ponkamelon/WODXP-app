@@ -2618,6 +2618,21 @@ function computeExerciseXp(ex: Exercise, log: { weight: number; reps: number; se
   return Math.max(0, ex.xp_value + adjustment);
 }
 
+/** Starting weight/reps for an exercise in a new workout. With 5 or more
+ *  completed passes it is the average of the 5 most recent; with fewer, the
+ *  most recent one; with none, the exercise's defaults. Sets always start at
+ *  the default. XP is still compared against the defaults (computeExerciseXp),
+ *  never against this prefill. Weight is rounded to 0.5 kg, reps to whole reps. */
+const PREFILL_WINDOW = 5;
+function startingLog(ex: Exercise, records: Record<string, ExerciseRecord>): { weight: number; reps: number; sets: number } {
+  const base = { weight: ex.default_weight_kg, reps: ex.default_reps, sets: ex.default_sets };
+  const recent = records[ex.id]?.recent;
+  if (!recent || recent.length === 0) return base;
+  const picked = recent.length >= PREFILL_WINDOW ? recent.slice(-PREFILL_WINDOW) : recent.slice(-1);
+  const avg = (key: 'weight' | 'reps') => picked.reduce((sum, r) => sum + r[key], 0) / picked.length;
+  return { weight: Math.round(avg('weight') * 2) / 2, reps: Math.max(1, Math.round(avg('reps'))), sets: base.sets };
+}
+
 /** Static holds (plank, wall sit, farmer hold…) get a timer in the workout.
  *  The database has no "hold" flag, so this is decided from the name: dynamic
  *  plank/hold variants (rows, drags, taps, sit-ups, dead bugs…) are excluded. */
@@ -2772,7 +2787,7 @@ function WorkoutScreen({ exercises: initialExercises, pool, userId, durationMinu
   // for another before its first set is logged.
   const [exercises, setExercises] = useState<Exercise[]>(initialExercises);
   const [logs, setLogs] = useState<Record<string, { weight: number; reps: number; sets: number }>>(
-    Object.fromEntries(initialExercises.map((ex) => [ex.id, { weight: ex.default_weight_kg, reps: ex.default_reps, sets: ex.default_sets }]))
+    Object.fromEntries(initialExercises.map((ex) => [ex.id, startingLog(ex, records)]))
   );
   const seenIds = React.useRef<Set<string>>(new Set(initialExercises.map((e) => e.id)));
   const [done, setDone] = useState<Set<string>>(new Set());
@@ -2799,7 +2814,7 @@ function WorkoutScreen({ exercises: initialExercises, pool, userId, durationMinu
     if (!replacement) return;
     seenIds.current.add(replacement.id);
     setExercises((prev) => prev.map((e, i) => (i === index ? replacement : e)));
-    setLogs((p) => ({ ...p, [replacement.id]: { weight: replacement.default_weight_kg, reps: replacement.default_reps, sets: replacement.default_sets } }));
+    setLogs((p) => ({ ...p, [replacement.id]: startingLog(replacement, records) }));
     setSetsDone((p) => { const n = { ...p }; delete n[current.id]; return n; });
   };
   const completeSet = (id: string, totalSets: number) => {
@@ -2937,6 +2952,15 @@ function WorkoutScreen({ exercises: initialExercises, pool, userId, durationMinu
                 <Stepper label="Reps" value={log.reps} onChange={(v) => setLogs((p) => ({ ...p, [ex.id]: { ...p[ex.id], reps: v } }))} step={1} unit="reps" min={1} />
                 <Stepper label="Sets" value={log.sets} onChange={(v) => { setLogs((p) => ({ ...p, [ex.id]: { ...p[ex.id], sets: v } })); if (!isDone && (setsDone[ex.id] ?? 0) >= v) markExerciseDone(ex.id); }} step={1} unit="sets" min={1} />
               </div>
+              {!isDone && (setsDone[ex.id] ?? 0) === 0 && (log.weight !== ex.default_weight_kg || log.reps !== ex.default_reps || log.sets !== ex.default_sets) && (
+                <button
+                  onClick={() => setLogs((p) => ({ ...p, [ex.id]: { weight: ex.default_weight_kg, reps: ex.default_reps, sets: ex.default_sets } }))}
+                  className="mt-2 w-full text-center text-[11px] font-medium underline"
+                  style={{ color: C.muted }}
+                >
+                  Reset to default ({ex.default_weight_kg > 0 ? `${ex.default_weight_kg} kg × ` : ''}{ex.default_reps} reps × {ex.default_sets} sets)
+                </button>
+              )}
               {!isDone && isHoldExercise(ex) && <HoldTimer key={ex.id} accent={EQUIPMENT_COLORS[equipment]} reps={log.reps} />}
               <LedBorderButton onClick={() => completeSet(ex.id, log.sets)} disabled={isDone} radius={12}
                 className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-3 font-bold"
