@@ -443,6 +443,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 92 additions:
+  'Burpee Tuck Broad Jump Complex|bodyweight': '/exercise-images/bodyweight/burpee_tuck_broad_jump_complex.png',
+  'Cossack-Hip Airplane-Lunge Complex|bodyweight': '/exercise-images/bodyweight/cossack_hip_airplane_lunge_complex.png',
+  'Full-Body Plyometric Flow|bodyweight': '/exercise-images/bodyweight/full_body_plyometric_flow.png',
+  'Dumbbell Clean-Jerk-Lunge Complex|dumbbell': '/exercise-images/dumbbell/dumbbell_clean_jerk_lunge_complex.png',
+  'Dumbbell Double Snatch Walking Lunge|dumbbell': '/exercise-images/dumbbell/dumbbell_double_snatch_walking_lunge.png',
+  'Dumbbell Overhead Mobility Flow|dumbbell': '/exercise-images/dumbbell/dumbbell_overhead_mobility_flow.png',
+  'Dumbbell Snatch-Squat-Lunge Complex|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch_squat_lunge_complex.png',
+  'Double KB Long Cycle Complex|kettlebell': '/exercise-images/kettlebell/double_kb_long_cycle_complex.png',
+  'Double KB Thruster to Reverse Lunge|kettlebell': '/exercise-images/kettlebell/double_kb_thruster_to_reverse_lunge.png',
+  'KB Snatch-Windmill-Get-Up Complex|kettlebell': '/exercise-images/kettlebell/kb_snatch_windmill_get_up_complex.png',
   // Batch 91 additions:
   'Advanced Hip Flow without Hands|bodyweight': '/exercise-images/bodyweight/advanced_hip_flow_without_hands.png',
   'Burpee 180 Broad Jump Complex|bodyweight': '/exercise-images/bodyweight/burpee_180_broad_jump_complex.png',
