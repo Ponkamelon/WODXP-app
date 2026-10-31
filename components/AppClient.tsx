@@ -3792,7 +3792,7 @@ function InstallGuideModal({ installEvent, onClose, onInstalled }: {
   );
 }
 
-function ProfileMenu({ userId, username, onLogout, onPrivacy, onInstall, installed, allTimeStats }: { userId: string; username: string; onLogout: () => void; onPrivacy: () => void; onInstall: () => void; installed: boolean; allTimeStats: AllTimeStats }) {
+function ProfileMenu({ userId, username, onLogout, onPrivacy, onTerms, onInstall, installed, allTimeStats }: { userId: string; username: string; onLogout: () => void; onPrivacy: () => void; onTerms: () => void; onInstall: () => void; installed: boolean; allTimeStats: AllTimeStats }) {
   return (
     <div className="min-h-screen pb-24" style={{ backgroundColor: C.bg }}>
       <header className="px-5 pt-6 pb-4">
@@ -3815,6 +3815,10 @@ function ProfileMenu({ userId, username, onLogout, onPrivacy, onInstall, install
         </button>
         <button onClick={onPrivacy} className="flex w-full items-center justify-between rounded-2xl border py-4 px-5 text-sm font-bold" style={{ borderColor: C.border, color: C.text, backgroundColor: C.surface, ...SG }}>
           Privacy Policy
+          <ChevronRight size={16} style={{ color: C.muted }} />
+        </button>
+        <button onClick={onTerms} className="flex w-full items-center justify-between rounded-2xl border py-4 px-5 text-sm font-bold" style={{ borderColor: C.border, color: C.text, backgroundColor: C.surface, ...SG }}>
+          Terms of Service
           <ChevronRight size={16} style={{ color: C.muted }} />
         </button>
         <button onClick={onLogout} className="w-full rounded-2xl border py-4 text-sm font-bold" style={{ borderColor: C.border, color: C.boss, backgroundColor: C.surface, ...SG }}>
@@ -5306,7 +5310,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     onOpen={(t) => { setSelectedTestId(t.id); setScreen('test'); }} />;
   else if (tab === 'exercises') content = <ExercisesScreen exercises={exercises} />;
   else if (tab === 'stats') content = <StatsScreen stats={stats} records={exerciseRecords} exercises={exercises} />;
-  else if (tab === 'profile') content = <ProfileMenu userId={user.id} username={user.username} onLogout={handleLogout} onPrivacy={() => router.push('/privacy')} onInstall={() => setShowInstallGuide(true)} installed={installed} allTimeStats={allTimeStats} />;
+  else if (tab === 'profile') content = <ProfileMenu userId={user.id} username={user.username} onLogout={handleLogout} onPrivacy={() => router.push('/privacy')} onTerms={() => router.push('/terms')} onInstall={() => setShowInstallGuide(true)} installed={installed} allTimeStats={allTimeStats} />;
 
   return (
     <div style={{ backgroundColor: C.bg }}>

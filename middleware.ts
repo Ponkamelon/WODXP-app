@@ -9,9 +9,9 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-// /privacy must stay public: app stores (and anyone) need to reach the
-// privacy policy without logging in first.
-const PUBLIC_ROUTES = ['/login', '/signup', '/auth/callback', '/privacy'];
+// /privacy and /terms must stay public: app stores (and anyone) need to reach
+// them without logging in first, and they are linked from the signup form.
+const PUBLIC_ROUTES = ['/login', '/signup', '/auth/callback', '/privacy', '/terms'];
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });

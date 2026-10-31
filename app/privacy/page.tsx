@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { LEGAL_LAST_UPDATED, MIN_AGE } from '@/lib/legal';
 
 // Kept as a standalone constants object (no component imports) so this page
 // stays lightweight and renders fine for logged-out visitors and app-store
@@ -44,7 +45,7 @@ export default async function PrivacyPage() {
         </a>
 
         <h1 className="mt-4 text-3xl font-bold" style={{ fontFamily: "'Oswald', sans-serif" }}>Privacy Policy</h1>
-        <p className="mt-1 text-sm" style={{ color: C.muted }}>Last updated: August 12, 2026</p>
+        <p className="mt-1 text-sm" style={{ color: C.muted }}>Last updated: {LEGAL_LAST_UPDATED}</p>
 
         <p className="mt-6 text-sm leading-relaxed" style={{ color: C.muted }}>
           This Privacy Policy explains how WODXP (&quot;the App,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) collects, uses, stores, and
@@ -65,6 +66,7 @@ export default async function PrivacyPage() {
             <li>Email address (used for login and account recovery)</li>
             <li>Username</li>
             <li>Password (stored securely as a hashed value by our authentication provider — we never see or store your plain-text password)</li>
+            <li>A record that you confirmed you meet the minimum age ({MIN_AGE}) and accepted our Terms of Service, including the date and version. The year of birth you enter at registration is used only for this check and is not stored.</li>
           </ul>
           <p style={{ color: C.text, fontWeight: 600 }} className="pt-2">2.2 Fitness &amp; Activity Data</p>
           <ul className="list-disc pl-5 space-y-1">
@@ -128,7 +130,7 @@ export default async function PrivacyPage() {
             Data Protection Regulation (GDPR). To exercise any of these rights, contact us at pontus.melin@gmail.com.
             We will respond within a reasonable timeframe, and no later than required by applicable law.
           </p>
-          <p>You can also delete your account directly from the App under Profile → Account Settings → Delete Account.</p>
+          <p>To delete your account and the data linked to it, email us at pontus.melin@gmail.com from the address you registered with.</p>
         </Section>
 
         <Section title="6. Data Retention">
@@ -141,13 +143,34 @@ export default async function PrivacyPage() {
 
         <Section title="7. Children's Privacy">
           <p>
-            The App is not intended for children under the age of 16. We do not knowingly collect personal data
-            from children under 16. If you believe a child has provided us with personal data, please contact us
-            so we can remove it.
+            The App is not intended for children under the age of {MIN_AGE}. When you register we ask for your year
+            of birth and do not create an account if you are under {MIN_AGE}. We use the year only for this check and
+            do not store it; we keep only the confirmation that you meet the age limit. We do not knowingly collect
+            personal data from children under {MIN_AGE}. If you believe a child has provided us with personal data,
+            please contact us so we can remove it.
           </p>
         </Section>
 
-        <Section title="8. Changes to This Policy">
+        <Section title="8. Sale, Merger or Transfer of the Business">
+          <p>
+            If WODXP is sold, merged, reorganized, or transferred, in whole or in part, your personal data may be
+            transferred to the new owner as part of that transaction. This is limited to the data needed to keep running
+            the App for you, and the new owner may only use it for the purposes described in this policy.
+          </p>
+          <p>
+            The new owner becomes responsible for your personal data (the data controller) and must follow this policy,
+            or tell you about any changes before they apply to you, as described in section 9.
+          </p>
+          <p>
+            We will inform you in advance through the App or by email, before the transfer takes effect. You can delete
+            your account before the transfer, and your data will then not be transferred (see section 5).
+          </p>
+        </Section>
+
+        <Section title="9. Changes to This Policy">
+          <p>
+            Our <a href="/terms" className="underline" style={{ color: C.xp }}>Terms of Service</a> also apply when you use the App.
+          </p>
           <p>
             We may update this Privacy Policy from time to time. If we make material changes, we will notify you
             through the App or by email before the changes take effect. The &quot;Last updated&quot; date at the top of
@@ -155,7 +178,7 @@ export default async function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="9. Contact Us">
+        <Section title="10. Contact Us">
           <p style={{ color: C.text }}>Pontus Melin</p>
           <p>Email: pontus.melin@gmail.com</p>
         </Section>
