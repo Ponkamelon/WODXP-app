@@ -103,6 +103,11 @@ export default function LoginPage() {
             Create an account
           </a>
         </p>
+        <p className="mt-4 text-center text-xs" style={{ color: C.muted }}>
+          <a href="/terms" className="underline">Terms</a>
+          {' · '}
+          <a href="/privacy" className="underline">Privacy</a>
+        </p>
       </div>
     </div>
   );
