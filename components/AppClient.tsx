@@ -443,6 +443,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 90 additions:
+  'Burpee Tuck Jump Mountain Climber Complex|bodyweight': '/exercise-images/bodyweight/burpee_tuck_jump_mountain_climber_complex.png',
+  'Ground-to-Standing Flow|bodyweight': '/exercise-images/bodyweight/ground_to_standing_flow.png',
+  'Skater Jump Broad Jump Complex|bodyweight': '/exercise-images/bodyweight/skater_jump_broad_jump_complex.png',
+  'Dumbbell Clean Overhead Walking Lunge|dumbbell': '/exercise-images/dumbbell/dumbbell_clean_overhead_walking_lunge.png',
+  'Dumbbell Renegade Row Devil Press|dumbbell': '/exercise-images/dumbbell/dumbbell_renegade_row_devil_press.png',
+  'Dumbbell Snatch-Squat-Press Complex|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch_squat_press_complex.png',
+  'Double KB Jerk|kettlebell': '/exercise-images/kettlebell/double_kb_jerk.png',
+  'Double KB Overhead Walking Lunge|kettlebell': '/exercise-images/kettlebell/double_kb_overhead_walking_lunge.png',
+  'Double KB Plank Row Complex|kettlebell': '/exercise-images/kettlebell/double_kb_plank_row_complex.png',
+  'KB Turkish Get-Up Complex|kettlebell': '/exercise-images/kettlebell/kb_turkish_get_up_complex.png',
   // Batch 89 additions:
   'Cossack to Ground Flow|bodyweight': '/exercise-images/bodyweight/cossack_to_ground_flow.png',
   'Double KB Clean Walking Lunge|kettlebell': '/exercise-images/kettlebell/double_kb_clean_walking_lunge.png',
