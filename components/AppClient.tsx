@@ -3792,9 +3792,84 @@ function InstallGuideModal({ installEvent, onClose, onInstalled }: {
   );
 }
 
+// Permanently deletes the signed-in user's account and all history via the
+// delete_my_account() RPC (db/delete_account.sql). Two safeguards: a clear
+// warning and a typed confirmation word, so it cannot be tapped by accident.
+const DELETE_CONFIRM_WORD = 'DELETE';
+
+function DeleteAccountModal({ onCancel, onDeleted }: { onCancel: () => void; onDeleted: () => void }) {
+  const [typed, setTyped] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const canDelete = typed.trim().toUpperCase() === DELETE_CONFIRM_WORD && !busy;
+
+  const handleDelete = async () => {
+    if (!canDelete) return;
+    setBusy(true);
+    setError(null);
+    const supabase = createClient();
+    const { error: rpcError } = await supabase.rpc('delete_my_account');
+    if (rpcError) {
+      setError('Could not delete your account. Please try again, or email pontus.melin@gmail.com.');
+      setBusy(false);
+      return;
+    }
+    onDeleted();
+  };
+
+  return (
+    <SafeModalShell onBackdropClick={busy ? undefined : onCancel}>
+      <div className="rounded-3xl border p-6" style={{ backgroundColor: C.surface, borderColor: C.boss }}>
+        <h2 className="text-xl font-bold" style={{ color: C.boss, ...SG }}>Delete account?</h2>
+        <p className="mt-3 text-sm leading-relaxed" style={{ color: C.text }}>
+          Are you sure? This permanently deletes your account and <strong>all your history</strong>: workouts,
+          personal bests, XP and levels, Boss and WOD results, fitness tests, and your friend connections and challenges.
+        </p>
+        <p className="mt-2 text-sm font-semibold" style={{ color: C.text }}>This cannot be undone.</p>
+        <label className="mt-4 block text-xs uppercase tracking-wider" style={{ color: C.muted }}>
+          Type {DELETE_CONFIRM_WORD} to confirm
+        </label>
+        <input
+          type="text"
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          autoCapitalize="characters"
+          autoCorrect="off"
+          autoComplete="off"
+          disabled={busy}
+          className="mt-1.5 w-full rounded-xl border px-4 py-3 text-sm outline-none"
+          style={{ borderColor: C.border, backgroundColor: C.bg, color: C.text }}
+          placeholder={DELETE_CONFIRM_WORD}
+        />
+        {error && <p className="mt-3 text-sm" style={{ color: C.boss }}>{error}</p>}
+        <div className="mt-5 flex gap-3">
+          <button
+            onClick={onCancel}
+            disabled={busy}
+            className="flex-1 rounded-2xl border py-3 text-sm font-bold disabled:opacity-50"
+            style={{ borderColor: C.border, color: C.text, ...SG }}
+          >
+            Keep my account
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={!canDelete}
+            className="flex-1 rounded-2xl py-3 text-sm font-bold disabled:opacity-40"
+            style={{ backgroundColor: C.boss, color: '#0D0D0D', ...SG }}
+          >
+            {busy ? 'Deleting…' : 'Delete forever'}
+          </button>
+        </div>
+      </div>
+    </SafeModalShell>
+  );
+}
+
 function ProfileMenu({ userId, username, onLogout, onPrivacy, onTerms, onInstall, installed, allTimeStats }: { userId: string; username: string; onLogout: () => void; onPrivacy: () => void; onTerms: () => void; onInstall: () => void; installed: boolean; allTimeStats: AllTimeStats }) {
+  const [showDelete, setShowDelete] = useState(false);
   return (
     <div className="min-h-screen pb-24" style={{ backgroundColor: C.bg }}>
+      {showDelete && <DeleteAccountModal onCancel={() => setShowDelete(false)} onDeleted={onLogout} />}
       <header className="px-5 pt-6 pb-4">
         <p className="text-xs uppercase tracking-wider" style={{ color: C.muted }}>Account</p>
         <h1 className="text-2xl font-bold" style={SG}>{username}</h1>
@@ -3823,6 +3898,9 @@ function ProfileMenu({ userId, username, onLogout, onPrivacy, onTerms, onInstall
         </button>
         <button onClick={onLogout} className="w-full rounded-2xl border py-4 text-sm font-bold" style={{ borderColor: C.border, color: C.boss, backgroundColor: C.surface, ...SG }}>
           Log Out
+        </button>
+        <button onClick={() => setShowDelete(true)} className="w-full py-3 text-xs font-medium underline" style={{ color: C.muted }}>
+          Delete account
         </button>
       </div>
     </div>
