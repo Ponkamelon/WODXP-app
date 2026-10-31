@@ -443,6 +443,19 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 97 additions:
+  'Knee Hug Stretch|bodyweight': '/exercise-images/bodyweight/knee_hug_stretch.png',
+  'Cross Jack|bodyweight': '/exercise-images/bodyweight/cross_jack.png',
+  'Standing Oblique Crunch|bodyweight': '/exercise-images/bodyweight/standing_oblique_crunch.png',
+  'Seated Twist|bodyweight': '/exercise-images/bodyweight/seated_twist.png',
+  'Seated Core Hold|bodyweight': '/exercise-images/bodyweight/seated_core_hold.png',
+  'In-and-Out Crunch|bodyweight': '/exercise-images/bodyweight/in_and_out_crunch.png',
+  'Seated Knee Tuck|bodyweight': '/exercise-images/bodyweight/seated_knee_tuck.png',
+  'Pogo Hop|bodyweight': '/exercise-images/bodyweight/pogo_hop.png',
+  'Front Kick|bodyweight': '/exercise-images/bodyweight/front_kick.png',
+  'Kick and Step Back|bodyweight': '/exercise-images/bodyweight/kick_and_step_back.png',
+  'Kickstand Floor Touch|bodyweight': '/exercise-images/bodyweight/kickstand_floor_touch.png',
+  'Twisting High Knees|bodyweight': '/exercise-images/bodyweight/twisting_high_knees.png',
   // Batch 96 additions:
   'Dumbbell Man Maker to Overhead Carry|dumbbell': '/exercise-images/dumbbell/dumbbell_man_maker_to_overhead_carry.png',
   'Double KB Overhead Carry Complex|kettlebell': '/exercise-images/kettlebell/double_kb_overhead_carry_complex.png',
