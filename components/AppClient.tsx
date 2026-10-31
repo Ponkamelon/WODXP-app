@@ -4195,6 +4195,8 @@ function friendsErrorText(raw: string | undefined): string {
   if (m.includes('friend_paused')) return 'That friend has paused Friends.';
   if (m.includes('blocked')) return 'This isn’t possible right now.';
   if (m.includes('not_friends')) return 'You are not friends anymore.';
+  if (m.includes('invalid_weight')) return 'Choose a weight between 0.5 and 100 kg.';
+  if (m.includes('invalid_reps')) return 'Enter a number of reps between 0 and 1000.';
   if (m.includes('message_too_long')) return 'The message is too long (max 140 characters).';
   if (m.includes('not_pending')) return 'This challenge has already been answered or has ended.';
   if (m.includes('level_not_allowed')) return 'You can only choose the original level or an easier adaptation.';
@@ -4502,6 +4504,234 @@ function ChallengesSection({ friends, onChanged }: { friends: FriendEntry[]; onC
   );
 }
 
+// ─── Friends duels: max reps in a fixed time with a fixed weight (Biceps Curl 5 min) ──
+// Self-reported, no XP. The challenger does a timed attempt and sends the rep count;
+// the friend accepts by doing the same attempt. Both results are then shown side by side.
+interface DuelIncoming {
+  id: string; from_username: string; exercise_name: string; weight_kg: number;
+  duration_seconds: number; sender_reps: number; message: string | null; respond_by: string;
+}
+interface DuelOutgoing {
+  id: string; to_username: string; exercise_name: string; weight_kg: number;
+  duration_seconds: number; sender_reps: number; respond_by: string;
+}
+interface DuelRecent {
+  id: string; exercise_name: string; weight_kg: number; duration_seconds: number;
+  other_username: string; i_sent: boolean; my_reps: number; their_reps: number; at: string;
+}
+interface DuelOverview { incoming: DuelIncoming[]; outgoing: DuelOutgoing[]; recent: DuelRecent[]; }
+
+const DUEL_SECONDS = 300;
+const duelMinutes = (sec: number) => `${Math.round(sec / 60)} min`;
+
+/** Countdown for one duel attempt. Ready → running → enter the reps you counted. */
+function DuelTimerModal({ title, weightKg, seconds, busy, onCancel, onDone }: {
+  title: string; weightKg: number; seconds: number; busy: boolean; onCancel: () => void; onDone: (reps: number) => void;
+}) {
+  const [phase, setPhase] = useState<'ready' | 'running' | 'enter'>('ready');
+  const [remaining, setRemaining] = useState(seconds);
+  const [reps, setReps] = useState(0);
+  const endRef = React.useRef(0);
+  useWakeLock(phase === 'running');
+
+  React.useEffect(() => {
+    if (phase !== 'running') return;
+    const id = setInterval(() => {
+      const left = Math.max(0, Math.ceil((endRef.current - Date.now()) / 1000));
+      setRemaining(left);
+      if (left === 0) { holdSetDoneSignal(); setPhase('enter'); }
+    }, 250);
+    return () => clearInterval(id);
+  }, [phase]);
+
+  const start = () => {
+    endRef.current = Date.now() + seconds * 1000;
+    setRemaining(seconds);
+    setPhase('running');
+    holdGoSignal();
+  };
+
+  return (
+    <SafeModalShell>
+      <div className="w-full max-w-sm rounded-3xl border p-6 text-center" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+        <p className="text-xs font-medium uppercase tracking-wider" style={{ color: C.xp }}>{title}</p>
+        <p className="mt-1 text-sm" style={{ color: C.muted }}>Use <span style={{ color: C.text, ...MO }}>{weightKg} kg</span> for {duelMinutes(seconds)}. Count your reps.</p>
+
+        {phase !== 'enter' && (
+          <p className="mt-5 text-6xl font-bold" style={{ color: phase === 'running' ? C.text : C.muted, ...MO }}>{formatTimer(remaining)}</p>
+        )}
+
+        {phase === 'ready' && (
+          <div className="mt-5 flex flex-col gap-2">
+            <button onClick={start} className="rounded-2xl py-3 text-sm font-bold" style={{ backgroundColor: C.xp, color: '#04140A', ...SG }}>Start {duelMinutes(seconds)} timer</button>
+            <button onClick={onCancel} className="rounded-2xl border py-3 text-sm font-bold" style={{ borderColor: C.border, color: C.muted, ...SG }}>Cancel</button>
+          </div>
+        )}
+
+        {phase === 'running' && (
+          <div className="mt-5 flex flex-col gap-2">
+            <p className="text-xs" style={{ color: C.muted }}>Keep going. You will be asked for your reps when time is up.</p>
+            <button onClick={() => setPhase('enter')} className="rounded-2xl border py-3 text-sm font-bold" style={{ borderColor: C.border, color: C.muted, ...SG }}>Stop early</button>
+          </div>
+        )}
+
+        {phase === 'enter' && (
+          <div className="mt-4">
+            <p className="text-base font-bold" style={SG}>Time’s up. How many reps?</p>
+            <input type="number" inputMode="numeric" min={0} max={1000} value={reps}
+              onChange={(e) => setReps(Math.max(0, Math.min(1000, Math.floor(Number(e.target.value) || 0))))}
+              className="mt-3 w-full rounded-xl border bg-transparent px-3 py-3 text-center text-3xl font-bold outline-none" style={{ borderColor: C.border, color: C.text, ...MO }} />
+            <div className="mt-5 flex flex-col gap-2">
+              <button disabled={busy} onClick={() => onDone(reps)} className="rounded-2xl py-3 text-sm font-bold disabled:opacity-60" style={{ backgroundColor: C.xp, color: '#04140A', ...SG }}>{busy ? 'Saving…' : 'Submit result'}</button>
+              <button disabled={busy} onClick={onCancel} className="rounded-2xl border py-3 text-sm font-bold" style={{ borderColor: C.border, color: C.muted, ...SG }}>Discard</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </SafeModalShell>
+  );
+}
+
+function DuelsSection({ friends, onChanged }: { friends: FriendEntry[]; onChanged: () => void }) {
+  const [ov, setOv] = useState<DuelOverview | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [sendTo, setSendTo] = useState('');
+  const [weight, setWeight] = useState(10);
+  const [note, setNote] = useState('');
+  const [attempt, setAttempt] = useState<{ kind: 'send' } | { kind: 'answer'; duel: DuelIncoming } | null>(null);
+
+  const load = async () => {
+    const { data, error } = await createClient().rpc('get_duels_overview');
+    if (error || !data) { setOv(null); return; }
+    setOv(data as DuelOverview);
+  };
+  React.useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+
+  const run = async (fn: () => PromiseLike<{ data?: any; error: { message: string } | null }>, okText: string) => {
+    setBusy(true); setMsg(null);
+    const { data, error } = await fn();
+    setBusy(false);
+    if (error) setMsg({ text: friendsErrorText(error.message), ok: false });
+    else if (data && (data as any).status === 'expired') setMsg({ text: 'This challenge has expired.', ok: false });
+    else setMsg({ text: okText, ok: true });
+    setAttempt(null);
+    await load();
+    onChanged();
+  };
+
+  const activeFriends = friends.filter((f) => !f.paused);
+  // Section stays hidden until the database migration for duels has been run.
+  if (!ov) return null;
+
+  const submitAttempt = (reps: number) => {
+    if (!attempt) return;
+    if (attempt.kind === 'send') {
+      run(async () => createClient().rpc('send_duel', {
+        p_friendship: sendTo, p_weight: weight, p_reps: reps, p_message: note.trim() === '' ? null : note.trim(),
+      }), `Challenge sent with your result: ${reps} reps.`);
+      setNote('');
+    } else {
+      const d = attempt.duel;
+      run(async () => createClient().rpc('respond_duel', { p_id: d.id, p_accept: true, p_reps: reps }), `Result saved: ${reps} reps.`);
+    }
+  };
+
+  return (
+    <section className="px-5 pt-5">
+      <h2 className="mb-2 text-sm font-bold uppercase tracking-wide" style={SG}>Duels</h2>
+      {msg && (
+        <div className="mb-3 rounded-xl border px-4 py-3 text-sm" style={{ borderColor: msg.ok ? C.xp : C.boss, color: C.text, backgroundColor: `${msg.ok ? C.xp : C.boss}12` }}>{msg.text}</div>
+      )}
+
+      {ov.incoming.length > 0 && (
+        <div className="mb-3 flex flex-col gap-3">
+          {ov.incoming.map((d) => (
+            <div key={d.id} className="rounded-2xl border p-4" style={{ borderColor: C.boss, backgroundColor: `${C.boss}0F` }}>
+              <p className="text-sm"><span className="font-bold">{d.from_username}</span> challenged you: <span className="font-bold">{d.exercise_name} {duelMinutes(d.duration_seconds)}</span></p>
+              <p className="mt-1 text-xs" style={{ color: C.muted }}>Use {d.weight_kg} kg and do as many reps as you can. Their result: <span style={{ color: C.text, ...MO }}>{d.sender_reps} reps</span></p>
+              {d.message && <p className="mt-2 text-sm italic">“{d.message}”</p>}
+              <p className="mt-1 text-[11px]" style={{ color: C.muted }}>Answer within: {chDaysLeft(d.respond_by)}</p>
+              <div className="mt-3 flex gap-2">
+                <button disabled={busy} onClick={() => setAttempt({ kind: 'answer', duel: d })} className="flex-1 rounded-xl py-2.5 text-sm font-bold" style={{ backgroundColor: C.xp, color: '#04140A', ...SG }}>Accept & start</button>
+                <button disabled={busy} onClick={() => run(async () => createClient().rpc('respond_duel', { p_id: d.id, p_accept: false }), 'Challenge declined.')}
+                  className="flex-1 rounded-xl border py-2.5 text-sm font-bold" style={{ borderColor: C.border, color: C.muted, ...SG }}>Decline</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {ov.outgoing.length > 0 && (
+        <div className="mb-3 flex flex-col gap-2">
+          {ov.outgoing.map((d) => (
+            <div key={d.id} className="rounded-xl border px-4 py-3" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+              <p className="text-sm">{d.exercise_name} {duelMinutes(d.duration_seconds)} ({d.weight_kg} kg) → <span className="font-bold">{d.to_username}</span></p>
+              <p className="text-[11px]" style={{ color: C.muted }}>Your result: {d.sender_reps} reps · waiting for answer · {chDaysLeft(d.respond_by)}</p>
+              <button disabled={busy} onClick={() => run(async () => createClient().rpc('revoke_duel', { p_id: d.id }), 'Challenge withdrawn.')}
+                className="mt-2 rounded-lg border px-3 py-1 text-xs font-bold" style={{ borderColor: C.border, color: C.muted }}>Withdraw</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="mb-3 rounded-2xl border p-4" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+        <p className="text-base font-bold" style={SG}>Biceps Curl 5 min</p>
+        <p className="mt-1 text-xs" style={{ color: C.muted }}>Pick a weight, do as many curls as you can in 5 minutes and send your result. Your friend does the same weight and time. Self-reported, no XP.</p>
+        <button disabled={busy || activeFriends.length === 0} onClick={() => { setSendTo(activeFriends[0]?.friendship_id ?? ''); setFormOpen(true); }}
+          className="mt-3 rounded-lg px-3 py-1.5 text-xs font-bold" style={{ backgroundColor: activeFriends.length > 0 ? C.xp : C.border, color: activeFriends.length > 0 ? '#04140A' : C.muted, ...SG }}>
+          Challenge a friend
+        </button>
+        {activeFriends.length === 0 && <p className="mt-2 text-[11px]" style={{ color: C.muted }}>Add a friend first.</p>}
+      </div>
+
+      {ov.recent.length > 0 && (
+        <div className="flex flex-col gap-1">
+          {ov.recent.map((r) => (
+            <p key={r.id} className="text-xs" style={{ color: C.muted }}>
+              {r.exercise_name} {duelMinutes(r.duration_seconds)} ({r.weight_kg} kg): you <span style={{ color: C.text, ...MO }}>{r.my_reps}</span> · {r.other_username} <span style={{ color: C.text, ...MO }}>{r.their_reps}</span> reps · {new Date(r.at).toLocaleDateString()}
+            </p>
+          ))}
+        </div>
+      )}
+
+      {formOpen && (
+        <SafeModalShell onBackdropClick={() => setFormOpen(false)}>
+          <div className="w-full max-w-sm rounded-3xl border p-6" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+            <h2 className="text-lg font-bold" style={SG}>Biceps Curl 5 min</h2>
+            <p className="mt-1 text-sm" style={{ color: C.muted }}>Choose the weight. You do the 5 minutes first, then your result is sent as the one to beat.</p>
+            <label className="mt-4 block text-xs" style={{ color: C.muted }}>Friend</label>
+            <select value={sendTo} onChange={(e) => setSendTo(e.target.value)} className="mt-1 w-full rounded-xl border bg-transparent px-3 py-2 text-sm" style={{ borderColor: C.border, color: C.text }}>
+              {activeFriends.map((f) => <option key={f.friendship_id} value={f.friendship_id}>{f.username}</option>)}
+            </select>
+            <div className="mt-4 flex justify-center">
+              <Stepper label="Weight" value={weight} onChange={(v) => setWeight(Math.min(100, v))} step={0.5} unit="kg" min={0.5} />
+            </div>
+            <label className="mt-3 block text-xs" style={{ color: C.muted }}>Short message (optional)</label>
+            <input value={note} onChange={(e) => setNote(e.target.value.slice(0, 140))} className="mt-1 w-full rounded-xl border bg-transparent px-3 py-2 text-sm outline-none" style={{ borderColor: C.border, color: C.text }} />
+            <div className="mt-5 flex flex-col gap-2">
+              <button disabled={!sendTo} onClick={() => { setFormOpen(false); setAttempt({ kind: 'send' }); }} className="rounded-2xl py-3 text-sm font-bold" style={{ backgroundColor: C.xp, color: '#04140A', ...SG }}>Start my attempt</button>
+              <button onClick={() => setFormOpen(false)} className="rounded-2xl border py-3 text-sm font-bold" style={{ borderColor: C.border, color: C.muted, ...SG }}>Cancel</button>
+            </div>
+          </div>
+        </SafeModalShell>
+      )}
+
+      {attempt && (
+        <DuelTimerModal
+          title={attempt.kind === 'send' ? 'Biceps Curl 5 min' : `${attempt.duel.exercise_name} ${duelMinutes(attempt.duel.duration_seconds)}`}
+          weightKg={attempt.kind === 'send' ? weight : attempt.duel.weight_kg}
+          seconds={attempt.kind === 'send' ? DUEL_SECONDS : attempt.duel.duration_seconds}
+          busy={busy}
+          onCancel={() => setAttempt(null)}
+          onDone={submitAttempt}
+        />
+      )}
+    </section>
+  );
+}
+
 function FriendsScreen() {
   const [overview, setOverview] = useState<FriendsOverview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -4802,6 +5032,8 @@ function FriendsScreen() {
           </section>
 
           <ChallengesSection friends={overview.friends} onChanged={load} />
+
+          <DuelsSection friends={overview.friends} onChanged={load} />
 
           <section className="px-5 pt-5">
             <h2 className="mb-2 text-sm font-bold uppercase tracking-wide" style={SG}>Add a friend</h2>
