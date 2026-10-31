@@ -130,7 +130,7 @@ export default async function PrivacyPage() {
             Data Protection Regulation (GDPR). To exercise any of these rights, contact us at pontus.melin@gmail.com.
             We will respond within a reasonable timeframe, and no later than required by applicable law.
           </p>
-          <p>To delete your account and the data linked to it, email us at pontus.melin@gmail.com from the address you registered with.</p>
+          <p>You can delete your account directly in the App under Profile → Delete account. This permanently removes your account and all data linked to it, including your workout history, progress, and friend connections. You can also email us at pontus.melin@gmail.com to request deletion.</p>
         </Section>
 
         <Section title="6. Data Retention">
