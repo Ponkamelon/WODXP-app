@@ -443,6 +443,15 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 96 additions:
+  'Dumbbell Man Maker to Overhead Carry|dumbbell': '/exercise-images/dumbbell/dumbbell_man_maker_to_overhead_carry.png',
+  'Double KB Overhead Carry Complex|kettlebell': '/exercise-images/kettlebell/double_kb_overhead_carry_complex.png',
+  'Double KB Overhead March|kettlebell': '/exercise-images/kettlebell/double_kb_overhead_march.png',
+  'Heavy Double KB Farmer Carry|kettlebell': '/exercise-images/kettlebell/heavy_double_kb_farmer_carry.png',
+  'Heavy Double KB Rack Carry|kettlebell': '/exercise-images/kettlebell/heavy_double_kb_rack_carry.png',
+  'Heavy KB Front Rack Carry|kettlebell': '/exercise-images/kettlebell/heavy_kb_front_rack_carry.png',
+  'Heavy KB Suitcase Carry|kettlebell': '/exercise-images/kettlebell/heavy_kb_suitcase_carry.png',
+  'KB Bottom-Up Walking Carry|kettlebell': '/exercise-images/kettlebell/kb_bottom_up_walking_carry.png',
   // Batch 95 additions:
   'Dumbbell Offset Farmer Carry|dumbbell': '/exercise-images/dumbbell/dumbbell_offset_farmer_carry.png',
   'Double KB Farmer Carry|kettlebell': '/exercise-images/kettlebell/double_kb_farmer_carry.png',
