@@ -2762,7 +2762,7 @@ function HoldTimer({ accent, reps }: { accent: string; reps: number }) {
   );
 }
 
-function WorkoutScreen({ exercises: initialExercises, pool, userId, durationMinutes, records, onBack, onFinish }: { exercises: Exercise[]; pool: Exercise[]; userId: string; durationMinutes: number; records: Record<string, ExerciseRecord>; onBack: () => void; onFinish: (requestedXp: number, grantedXp: number, doneLogs: { exerciseId: string; weight: number; reps: number }[]) => void }) {
+function WorkoutScreen({ exercises: initialExercises, pool, userId, durationMinutes, records, onBack, onFinish }: { exercises: Exercise[]; pool: Exercise[]; userId: string; durationMinutes: number; records: Record<string, ExerciseRecord>; onBack: () => void; onFinish: (requestedXp: number, grantedXp: number, doneLogs: { exerciseId: string; weight: number; reps: number }[], challenges: ChallengeClear[]) => void }) {
   // Captured once, when the workout screen first mounts — i.e. when the
   // user actually starts training. Without this, the session row would
   // only get a started_at/completed_at pair at save time (both ~identical),
@@ -2856,7 +2856,15 @@ function WorkoutScreen({ exercises: initialExercises, pool, userId, durationMinu
 
       const { data: grantedXp } = await supabase.rpc('award_xp', { p_user_id: userId, p_xp: totalXP });
 
-      onFinish(totalXP, grantedXp ?? totalXP, exercises.filter((ex) => done.has(ex.id)).map((ex) => ({ exerciseId: ex.id, weight: logs[ex.id].weight, reps: logs[ex.id].reps })));
+      // Friends challenges: the server decides whether this saved workout clears one.
+      // Best effort - a failure here must never block the workout from being saved.
+      let cleared: ChallengeClear[] = [];
+      try {
+        const { data: ev } = await supabase.rpc('challenge_evaluate', { p_session: session.id });
+        if (Array.isArray(ev)) cleared = ev as ChallengeClear[];
+      } catch { /* ignore */ }
+
+      onFinish(totalXP, grantedXp ?? totalXP, exercises.filter((ex) => done.has(ex.id)).map((ex) => ({ exerciseId: ex.id, weight: logs[ex.id].weight, reps: logs[ex.id].reps })), cleared);
     }
     setSaving(false);
   };
@@ -3099,9 +3107,10 @@ function detectSessionPopups(prev: UserStats, next: UserStats): { levelUps: { at
   return { levelUps, streakMessage };
 }
 
-function CompleteScreen({ xpEarned, exerciseSummary, levelUps, streakMessage, newlyUnlocked, unlockedChallenge, xpCapped, onHome }: {
+function CompleteScreen({ xpEarned, exerciseSummary, levelUps, streakMessage, newlyUnlocked, unlockedChallenge, xpCapped, clearedChallenges, onHome }: {
   xpEarned: number;
   exerciseSummary: SessionExerciseSummary[];
+  clearedChallenges: ChallengeClear[];
   levelUps: { attribute: string; level: number }[];
   streakMessage: string | null;
   newlyUnlocked: number;
@@ -3118,6 +3127,17 @@ function CompleteScreen({ xpEarned, exerciseSummary, levelUps, streakMessage, ne
       </div>
       <h1 className="text-3xl font-bold" style={SG}>Workout Saved!</h1>
       <p className="mt-2" style={{ color: C.muted }}>Your progress has been recorded.</p>
+
+      {clearedChallenges.map((c) => (
+        <div key={c.invite_id} className="mt-4 w-full rounded-2xl border p-5" style={{ borderColor: C.mobility, backgroundColor: `${C.mobility}15` }}>
+          <p className="text-lg font-bold" style={{ color: C.mobility, ...SG }}>{FRIENDS_TEXT.clearedTogether}</p>
+          <p className="mt-1 text-sm" style={{ color: C.text }}>{c.name}: <span style={MO}>{c.result} / {c.target}</span></p>
+          <p className="mt-1 text-xs" style={{ color: C.muted }}>
+            {c.recipient_bonus ? `+${c.recipient_bonus.points} bonus XP` : 'Completed without bonus XP'}
+            {c.friends_xp ? ` · +${c.friends_xp.points} Friends XP` : ''}
+          </p>
+        </div>
+      ))}
 
       {levelUpMessage && (
         <motion.div
@@ -4082,6 +4102,34 @@ function FitnessTestScreen({ test, results, totalWorkouts, userId, onBack, onSav
   );
 }
 
+// ─── Friends challenges (step 2) ──────────────────────────────────────────────
+interface ChallengeClear {
+  invite_id: string; name: string; result: number; target: number;
+  recipient_bonus: { points: number; granted: number } | null;
+  friends_xp: { points: number } | null; sender_bonus_given: boolean;
+}
+interface ChLevel {
+  key: string; label: string; target: number; is_original: boolean;
+  xp_recipient: number; xp_sender: number; xp_friends: number;
+  proof: { session_id: string; result: number; completed_at: string } | null;
+}
+interface ChTemplate { id: string; slug: string; name: string; description: string | null; rules: string | null; metric: string; levels: ChLevel[]; }
+interface ChIncoming {
+  id: string; status: 'pending' | 'active'; name: string; rules: string | null; from_username: string; message: string | null;
+  respond_by: string; complete_by: string | null; sent_level_key: string; sent_target: number; sender_result: number | null;
+  recipient_level_key: string | null; recipient_target: number | null; xp_recipient: number; xp_friends: number;
+  bonus_eligible: boolean; bonus_available: boolean; levels: { key: string; label: string; target: number }[]; progress: number | null;
+}
+interface ChOutgoing {
+  id: string; status: 'pending' | 'active'; name: string; to_username: string; respond_by: string; complete_by: string | null;
+  sent_target: number; recipient_target: number | null; bonus_eligible: boolean; progress: number | null;
+}
+interface ChRecent { id: string; status: string; name: string; other_username: string; i_sent: boolean; at: string; }
+interface ChOverview {
+  templates: ChTemplate[]; incoming: ChIncoming[]; outgoing: ChOutgoing[]; recent: ChRecent[];
+  caps: { recipient_used: number; recipient_cap: number; sender_used: number; sender_cap: number };
+}
+
 // ─── Friends (step 1: invite codes, friend list, sharing controls, shared streak + level) ──
 interface FriendSettingsData {
   friends_enabled: boolean; share_last_workout: boolean; allow_invites: boolean; allow_challenges: boolean;
@@ -4120,6 +4168,10 @@ const FRIENDS_TEXT = {
   newWeek: 'New week, new shared step.',
   loadError: 'Couldn’t load Friends. Your old data is not shown as current.',
   retry: 'Try again',
+  challengesTitle: 'Challenges',
+  clearedTogether: 'You cleared the challenge together!',
+  noBonus: 'Do it without bonus',
+  chLoadError: 'Couldn’t load challenges.',
 } as const;
 
 function friendsErrorText(raw: string | undefined): string {
@@ -4137,6 +4189,16 @@ function friendsErrorText(raw: string | undefined): string {
   if (m.includes('confirmation_expired')) return 'This request expired. Ask your friend for a new code.';
   if (m.includes('invalid_request')) return 'This request is no longer available.';
   if (m.includes('invalid_code')) return 'That code isn’t valid. It may be wrong, used or expired.';
+  if (m.includes('no_qualifying_session')) return 'You need a finished, saved workout that clears this exact level (within the last 30 days).';
+  if (m.includes('already_sent')) return 'You already have an open challenge like this with that friend.';
+  if (m.includes('challenges_off')) return 'That friend isn’t taking new challenges right now.';
+  if (m.includes('friend_paused')) return 'That friend has paused Friends.';
+  if (m.includes('blocked')) return 'This isn’t possible right now.';
+  if (m.includes('not_friends')) return 'You are not friends anymore.';
+  if (m.includes('message_too_long')) return 'The message is too long (max 140 characters).';
+  if (m.includes('not_pending')) return 'This challenge has already been answered or has ended.';
+  if (m.includes('level_not_allowed')) return 'You can only choose the original level or an easier adaptation.';
+  if (m.includes('not_found') || m.includes('level_not_found') || m.includes('template_not_found')) return 'This challenge is no longer available.';
   return 'Something went wrong. Please try again.';
 }
 
@@ -4217,6 +4279,226 @@ function FriendCard({ friend, onEnd, onBlock }: { friend: FriendEntry; onEnd: ()
         <button onClick={onBlock} className="flex-1 rounded-xl border py-2 text-xs font-bold" style={{ borderColor: C.border, color: C.boss, ...SG }}>Block</button>
       </div>
     </div>
+  );
+}
+
+function chDaysLeft(iso: string | null): string {
+  if (!iso) return '';
+  const ms = new Date(iso).getTime() - Date.now();
+  if (ms <= 0) return 'ending now';
+  const d = Math.floor(ms / 86400000);
+  if (d >= 1) return `${d} day${d === 1 ? '' : 's'} left`;
+  return `${Math.max(1, Math.floor(ms / 3600000))} h left`;
+}
+
+function ChallengeProgress({ value, target }: { value: number; target: number }) {
+  const pct = Math.max(0, Math.min(100, Math.round((value / Math.max(1, target)) * 100)));
+  return (
+    <div className="mt-2">
+      <div className="flex justify-between text-xs"><span style={{ color: C.muted }}>Progress</span><span style={MO}>{Math.min(value, target)} / {target}</span></div>
+      <div className="mt-1 h-2 overflow-hidden rounded-full" style={{ backgroundColor: C.border }}>
+        <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: C.xp }} />
+      </div>
+    </div>
+  );
+}
+
+function ChallengesSection({ friends, onChanged }: { friends: FriendEntry[]; onChanged: () => void }) {
+  const [ov, setOv] = useState<ChOverview | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [sendFor, setSendFor] = useState<{ tpl: ChTemplate; level: ChLevel } | null>(null);
+  const [sendTo, setSendTo] = useState('');
+  const [sendMsg, setSendMsg] = useState('');
+  const [pickLevel, setPickLevel] = useState<Record<string, string>>({});
+
+  const load = async () => {
+    const { data, error } = await createClient().rpc('get_challenges_overview');
+    if (error || !data) { setFailed(true); return; }
+    setFailed(false);
+    setOv(data as ChOverview);
+  };
+  React.useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+
+  const act = async (fn: () => PromiseLike<{ error: { message: string } | null }>, okText: string) => {
+    setBusy(true); setMsg(null);
+    const { error } = await fn();
+    setBusy(false);
+    if (error) setMsg({ text: friendsErrorText(error.message), ok: false });
+    else setMsg({ text: okText, ok: true });
+    await load();
+    onChanged();
+  };
+
+  const send = async () => {
+    if (!sendFor || !sendTo) return;
+    const p = sendFor;
+    setBusy(true); setMsg(null);
+    const { error } = await createClient().rpc('send_challenge', {
+      p_friendship: sendTo, p_template: p.tpl.id, p_level_key: p.level.key,
+      p_session: p.level.proof?.session_id ?? null, p_message: sendMsg.trim() === '' ? null : sendMsg.trim(),
+    });
+    setBusy(false);
+    if (error) { setMsg({ text: friendsErrorText(error.message), ok: false }); return; }
+    setSendFor(null); setSendTo(''); setSendMsg('');
+    setMsg({ text: 'Challenge sent!', ok: true });
+    await load();
+  };
+
+  if (failed && !ov) {
+    return (
+      <section className="px-5 pt-5">
+        <h2 className="mb-2 text-sm font-bold uppercase tracking-wide" style={SG}>{FRIENDS_TEXT.challengesTitle}</h2>
+        <div className="rounded-2xl border p-4" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+          <p className="text-sm">{FRIENDS_TEXT.chLoadError}</p>
+          <button onClick={load} className="mt-2 rounded-lg border px-3 py-1 text-xs font-bold" style={{ borderColor: C.border }}>{FRIENDS_TEXT.retry}</button>
+        </div>
+      </section>
+    );
+  }
+  if (!ov) return <section className="px-5 pt-5"><p className="text-sm" style={{ color: C.muted }}>Loading challenges...</p></section>;
+
+  const activeFriends = friends.filter((f) => !f.paused);
+  const recipientCapped = ov.caps.recipient_used >= ov.caps.recipient_cap;
+
+  return (
+    <section className="px-5 pt-5">
+      <h2 className="mb-2 text-sm font-bold uppercase tracking-wide" style={SG}>{FRIENDS_TEXT.challengesTitle}</h2>
+      {msg && (
+        <div className="mb-3 rounded-xl border px-4 py-3 text-sm" style={{ borderColor: msg.ok ? C.xp : C.boss, color: C.text, backgroundColor: `${msg.ok ? C.xp : C.boss}12` }}>{msg.text}</div>
+      )}
+
+      {ov.incoming.length > 0 && (
+        <div className="mb-4 flex flex-col gap-3">
+          {ov.incoming.map((c) => {
+            const chosen = pickLevel[c.id] ?? c.sent_level_key;
+            const bonusLine = c.bonus_eligible
+              ? (c.bonus_available ? `Bonus: +${c.xp_recipient} XP and +${c.xp_friends} Friends XP` : 'Weekly bonus limit reached. You can still do it without bonus.')
+              : 'No bonus XP for this one.';
+            return (
+              <div key={c.id} className="rounded-2xl border p-4" style={{ borderColor: C.boss, backgroundColor: `${C.boss}0F` }}>
+                <p className="text-sm"><span className="font-bold">{c.from_username}</span> challenged you: <span className="font-bold">{c.name}</span></p>
+                <p className="mt-1 text-xs" style={{ color: C.muted }}>Goal: {c.sent_target}{c.sender_result !== null ? ` · their result: ${c.sender_result}` : ''}</p>
+                {c.rules && <p className="mt-1 text-xs" style={{ color: C.muted }}>{c.rules}</p>}
+                {c.message && <p className="mt-2 text-sm italic">“{c.message}”</p>}
+                <p className="mt-2 text-xs" style={{ color: C.xp }}>{bonusLine}</p>
+                {c.status === 'pending' ? (
+                  <>
+                    <p className="mt-1 text-[11px]" style={{ color: C.muted }}>Answer within: {chDaysLeft(c.respond_by)}. After accepting you have 7 days, and only workouts started after accepting count.</p>
+                    {c.levels.length > 1 && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {c.levels.map((l) => (
+                          <button key={l.key} onClick={() => setPickLevel({ ...pickLevel, [c.id]: l.key })} className="rounded-full border px-3 py-1 text-xs font-bold"
+                            style={{ borderColor: chosen === l.key ? C.xp : C.border, color: chosen === l.key ? C.xp : C.muted }}>{l.label} ({l.target})</button>
+                        ))}
+                      </div>
+                    )}
+                    <div className="mt-3 flex gap-2">
+                      <button disabled={busy} onClick={() => act(async () => createClient().rpc('respond_challenge', { p_id: c.id, p_accept: true, p_level_key: chosen }), 'Challenge accepted. Go train!')}
+                        className="flex-1 rounded-xl py-2.5 text-sm font-bold" style={{ backgroundColor: C.xp, color: '#04140A', ...SG }}>{FRIENDS_TEXT.accept}</button>
+                      <button disabled={busy} onClick={() => act(async () => createClient().rpc('respond_challenge', { p_id: c.id, p_accept: false }), 'Challenge declined.')}
+                        className="flex-1 rounded-xl border py-2.5 text-sm font-bold" style={{ borderColor: C.border, color: C.muted, ...SG }}>{FRIENDS_TEXT.decline}</button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <ChallengeProgress value={c.progress ?? 0} target={c.recipient_target ?? c.sent_target} />
+                    <p className="mt-1 text-[11px]" style={{ color: C.muted }}>{chDaysLeft(c.complete_by)}. Finish it in one saved workout.</p>
+                    {c.bonus_eligible && !c.bonus_available && <p className="mt-1 text-xs" style={{ color: C.boss }}>{FRIENDS_TEXT.noBonus}</p>}
+                    <button disabled={busy} onClick={() => act(async () => createClient().rpc('cancel_challenge', { p_id: c.id }), 'Challenge cancelled.')}
+                      className="mt-2 rounded-lg border px-3 py-1 text-xs font-bold" style={{ borderColor: C.border, color: C.muted }}>Cancel challenge</button>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {ov.outgoing.length > 0 && (
+        <div className="mb-4 flex flex-col gap-2">
+          {ov.outgoing.map((c) => (
+            <div key={c.id} className="rounded-xl border px-4 py-3" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+              <p className="text-sm">{c.name} → <span className="font-bold">{c.to_username}</span></p>
+              {c.status === 'pending' ? (
+                <>
+                  <p className="text-[11px]" style={{ color: C.muted }}>Waiting for answer · {chDaysLeft(c.respond_by)}</p>
+                  <button disabled={busy} onClick={() => act(async () => createClient().rpc('revoke_challenge', { p_id: c.id }), 'Challenge withdrawn.')}
+                    className="mt-2 rounded-lg border px-3 py-1 text-xs font-bold" style={{ borderColor: C.border, color: C.muted }}>Withdraw</button>
+                </>
+              ) : (
+                <>
+                  <ChallengeProgress value={c.progress ?? 0} target={c.recipient_target ?? c.sent_target} />
+                  <p className="mt-1 text-[11px]" style={{ color: C.muted }}>{chDaysLeft(c.complete_by)}</p>
+                  <button disabled={busy} onClick={() => act(async () => createClient().rpc('cancel_challenge', { p_id: c.id }), 'Challenge cancelled.')}
+                    className="mt-2 rounded-lg border px-3 py-1 text-xs font-bold" style={{ borderColor: C.border, color: C.muted }}>Cancel challenge</button>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {ov.templates.map((t) => (
+        <div key={t.id} className="mb-3 rounded-2xl border p-4" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+          <p className="text-base font-bold" style={SG}>{t.name}</p>
+          {t.description && <p className="mt-1 text-xs" style={{ color: C.muted }}>{t.description}</p>}
+          {t.rules && <p className="mt-1 text-xs" style={{ color: C.muted }}>{t.rules}</p>}
+          <div className="mt-3 flex flex-col gap-2">
+            {t.levels.map((l) => (
+              <div key={l.key} className="flex items-center justify-between gap-3 rounded-xl border px-3 py-2" style={{ borderColor: C.border }}>
+                <div>
+                  <p className="text-sm font-semibold">{l.label} <span style={{ ...MO, color: C.muted }}>({l.target})</span></p>
+                  <p className="text-[11px]" style={{ color: l.proof ? C.xp : C.muted }}>
+                    {l.proof ? `Cleared ${new Date(l.proof.completed_at).toLocaleDateString()}` : 'Clear it in a saved workout to send it'}
+                  </p>
+                </div>
+                <button disabled={!l.proof || busy || activeFriends.length === 0}
+                  onClick={() => { setSendFor({ tpl: t, level: l }); setSendTo(activeFriends[0]?.friendship_id ?? ''); }}
+                  className="rounded-lg px-3 py-1.5 text-xs font-bold" style={{ backgroundColor: l.proof && activeFriends.length > 0 ? C.xp : C.border, color: l.proof && activeFriends.length > 0 ? '#04140A' : C.muted, ...SG }}>
+                  Challenge a friend
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      <p className="text-[11px]" style={{ color: C.muted }}>
+        Bonus this week: {ov.caps.recipient_used}/{ov.caps.recipient_cap} received · {ov.caps.sender_used}/{ov.caps.sender_cap} sent{recipientCapped ? ' · you can still take challenges without bonus' : ''}. Time isn’t scored. Everyone who finishes wins together.
+      </p>
+
+      {ov.recent.length > 0 && (
+        <div className="mt-3 flex flex-col gap-1">
+          {ov.recent.map((r) => (
+            <p key={r.id} className="text-xs" style={{ color: C.muted }}>
+              {r.status === 'completed' ? `${FRIENDS_TEXT.clearedTogether.replace('You cleared', 'You and ' + r.other_username + ' cleared')} (${r.name})`
+                : `${r.name} with ${r.other_username}: ${r.status}`} · {new Date(r.at).toLocaleDateString()}
+            </p>
+          ))}
+        </div>
+      )}
+
+      {sendFor && (
+        <SafeModalShell onBackdropClick={() => setSendFor(null)}>
+          <div className="w-full max-w-sm rounded-3xl border p-6" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+            <h2 className="text-lg font-bold" style={SG}>Challenge a friend</h2>
+            <p className="mt-1 text-sm" style={{ color: C.muted }}>{sendFor.tpl.name} · {sendFor.level.label} ({sendFor.level.target})</p>
+            <label className="mt-4 block text-xs" style={{ color: C.muted }}>Friend</label>
+            <select value={sendTo} onChange={(e) => setSendTo(e.target.value)} className="mt-1 w-full rounded-xl border bg-transparent px-3 py-2 text-sm" style={{ borderColor: C.border, color: C.text }}>
+              {activeFriends.map((f) => <option key={f.friendship_id} value={f.friendship_id}>{f.username}</option>)}
+            </select>
+            <label className="mt-3 block text-xs" style={{ color: C.muted }}>Short message (optional)</label>
+            <input value={sendMsg} onChange={(e) => setSendMsg(e.target.value.slice(0, 140))} className="mt-1 w-full rounded-xl border bg-transparent px-3 py-2 text-sm outline-none" style={{ borderColor: C.border, color: C.text }} />
+            <div className="mt-5 flex flex-col gap-2">
+              <button disabled={busy || !sendTo} onClick={send} className="rounded-2xl py-3 text-sm font-bold" style={{ backgroundColor: C.xp, color: '#04140A', ...SG }}>Send challenge</button>
+              <button onClick={() => setSendFor(null)} className="rounded-2xl border py-3 text-sm font-bold" style={{ borderColor: C.border, color: C.muted, ...SG }}>Cancel</button>
+            </div>
+          </div>
+        </SafeModalShell>
+      )}
+    </section>
   );
 }
 
@@ -4519,6 +4801,8 @@ function FriendsScreen() {
             )}
           </section>
 
+          <ChallengesSection friends={overview.friends} onChanged={load} />
+
           <section className="px-5 pt-5">
             <h2 className="mb-2 text-sm font-bold uppercase tracking-wide" style={SG}>Add a friend</h2>
             <div className="rounded-2xl border p-4" style={{ borderColor: C.border, backgroundColor: C.surface }}>
@@ -4625,6 +4909,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
   const [sessionNewlyUnlocked, setSessionNewlyUnlocked] = useState(0);
   const [sessionUnlockedChallenge, setSessionUnlockedChallenge] = useState<{ name: string; isBoss: boolean } | null>(null);
   const [xpCapped, setXpCapped] = useState(false);
+  const [sessionCleared, setSessionCleared] = useState<ChallengeClear[]>([]);
   const [challengeXpEarned, setChallengeXpEarned] = useState(0);
   const [bossResult, setBossResult] = useState<{ passed: boolean; medal: string | null; xpReward: number } | null>(null);
   const [stats, setStats] = useState(initialStats);
@@ -4817,7 +5102,8 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     router.push('/login');
   };
 
-  const handleFinish = async (requestedXp: number, grantedXp: number, doneLogs: { exerciseId: string; weight: number; reps: number }[] = []) => {
+  const handleFinish = async (requestedXp: number, grantedXp: number, doneLogs: { exerciseId: string; weight: number; reps: number }[] = [], challenges: ChallengeClear[] = []) => {
+    setSessionCleared(challenges);
     setLastXP(grantedXp);
     const previousRecords = exerciseRecords;
     setXpCapped(grantedXp < requestedXp);
@@ -4991,7 +5277,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     <>
       <GlobalStyle />
       <PageTransition screenKey={screen}>
-        <CompleteScreen xpEarned={lastXP} exerciseSummary={sessionSummary} levelUps={sessionLevelUps} streakMessage={sessionStreakMessage} newlyUnlocked={sessionNewlyUnlocked} unlockedChallenge={sessionUnlockedChallenge} xpCapped={xpCapped} onHome={() => { setScreen('tab'); setTab('home'); }} />
+        <CompleteScreen xpEarned={lastXP} exerciseSummary={sessionSummary} levelUps={sessionLevelUps} streakMessage={sessionStreakMessage} newlyUnlocked={sessionNewlyUnlocked} unlockedChallenge={sessionUnlockedChallenge} xpCapped={xpCapped} clearedChallenges={sessionCleared} onHome={() => { setScreen('tab'); setTab('home'); }} />
       </PageTransition>
     </>
   );
