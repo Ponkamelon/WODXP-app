@@ -443,6 +443,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 93 additions:
+  'Advanced Ground Movement Flow|bodyweight': '/exercise-images/bodyweight/advanced_ground_movement_flow.png',
+  'Bodyweight Conditioning Master Complex|bodyweight': '/exercise-images/bodyweight/bodyweight_conditioning_master_complex.png',
+  'WODXP Mobility Master Flow|bodyweight': '/exercise-images/bodyweight/wodxp_mobility_master_flow.png',
+  'Dumbbell Conditioning Master Complex|dumbbell': '/exercise-images/dumbbell/dumbbell_conditioning_master_complex.png',
+  'Dumbbell Devil Press Man Maker Complex|dumbbell': '/exercise-images/dumbbell/dumbbell_devil_press_man_maker_complex.png',
+  'Dumbbell Full-Body Power Complex|dumbbell': '/exercise-images/dumbbell/dumbbell_full_body_power_complex.png',
+  'Dumbbell Turkish Get-Up Master Flow|dumbbell': '/exercise-images/dumbbell/dumbbell_turkish_get_up_master_flow.png',
+  'Double KB Clean-Jerk-Lunge Complex|kettlebell': '/exercise-images/kettlebell/double_kb_clean_jerk_lunge_complex.png',
+  'Double KB Clean-Squat-Press Complex|kettlebell': '/exercise-images/kettlebell/double_kb_clean_squat_press_complex.png',
+  'Double KB Full-Body Flow|kettlebell': '/exercise-images/kettlebell/double_kb_full_body_flow.png',
   // Batch 92 additions:
   'Burpee Tuck Broad Jump Complex|bodyweight': '/exercise-images/bodyweight/burpee_tuck_broad_jump_complex.png',
   'Cossack-Hip Airplane-Lunge Complex|bodyweight': '/exercise-images/bodyweight/cossack_hip_airplane_lunge_complex.png',
