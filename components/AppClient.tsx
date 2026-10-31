@@ -443,6 +443,19 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 98 additions:
+  'Oblique Hip Dip|bodyweight': '/exercise-images/bodyweight/oblique_hip_dip.png',
+  'V-Sit Twist|bodyweight': '/exercise-images/bodyweight/v_sit_twist.png',
+  'Jumping Switch Kick|bodyweight': '/exercise-images/bodyweight/jumping_switch_kick.png',
+  'Push-Up Jack|bodyweight': '/exercise-images/bodyweight/push_up_jack.png',
+  'Side-to-Side Push-Up|bodyweight': '/exercise-images/bodyweight/side_to_side_push_up.png',
+  'Explosive Push-Up|bodyweight': '/exercise-images/bodyweight/explosive_push_up.png',
+  'Push-Up to Knee Tuck|bodyweight': '/exercise-images/bodyweight/push_up_to_knee_tuck.png',
+  'Frog Jump|bodyweight': '/exercise-images/bodyweight/frog_jump.png',
+  'Squat Reach Jump|bodyweight': '/exercise-images/bodyweight/squat_reach_jump.png',
+  'Diamond Hop|bodyweight': '/exercise-images/bodyweight/diamond_hop.png',
+  'Single-Leg Push-Up|bodyweight': '/exercise-images/bodyweight/single_leg_push_up.png',
+  'Single-Leg Pike Push-Up|bodyweight': '/exercise-images/bodyweight/single_leg_pike_push_up.png',
   // Batch 97 additions:
   'Knee Hug Stretch|bodyweight': '/exercise-images/bodyweight/knee_hug_stretch.png',
   'Cross Jack|bodyweight': '/exercise-images/bodyweight/cross_jack.png',
