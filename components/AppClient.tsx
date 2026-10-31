@@ -443,6 +443,17 @@ const EXERCISE_ILLUSTRATION_IMAGES: Record<string, string> = {
   'Dumbbell Snatch|dumbbell': '/exercise-images/dumbbell/dumbbell_snatch.png',
   'Dumbbell Dead Bug Hold|dumbbell': '/exercise-images/dumbbell/dumbbell_dead_bug_hold.png',
   // Batch 50 additions:
+  // Batch 91 additions:
+  'Advanced Hip Flow without Hands|bodyweight': '/exercise-images/bodyweight/advanced_hip_flow_without_hands.png',
+  'Burpee 180 Broad Jump Complex|bodyweight': '/exercise-images/bodyweight/burpee_180_broad_jump_complex.png',
+  'Full-Body Mobility Complex|bodyweight': '/exercise-images/bodyweight/full_body_mobility_complex.png',
+  'Jumping Lunge Burpee Tuck Complex|bodyweight': '/exercise-images/bodyweight/jumping_lunge_burpee_tuck_complex.png',
+  'Dumbbell Clean-Thruster-Lunge Complex|dumbbell': '/exercise-images/dumbbell/dumbbell_clean_thruster_lunge_complex.png',
+  'Dumbbell Get-Up Windmill Lunge Flow|dumbbell': '/exercise-images/dumbbell/dumbbell_get_up_windmill_lunge_flow.png',
+  'Dumbbell Man Maker Thruster Complex|dumbbell': '/exercise-images/dumbbell/dumbbell_man_maker_thruster_complex.png',
+  'Double KB Clean-Jerk-Squat Complex|kettlebell': '/exercise-images/kettlebell/double_kb_clean_jerk_squat_complex.png',
+  'Double KB Snatch Walking Lunge|kettlebell': '/exercise-images/kettlebell/double_kb_snatch_walking_lunge.png',
+  'KB Bottom-Up Turkish Get-Up|kettlebell': '/exercise-images/kettlebell/kb_bottom_up_turkish_get_up.png',
   // Batch 90 additions:
   'Burpee Tuck Jump Mountain Climber Complex|bodyweight': '/exercise-images/bodyweight/burpee_tuck_jump_mountain_climber_complex.png',
   'Ground-to-Standing Flow|bodyweight': '/exercise-images/bodyweight/ground_to_standing_flow.png',
