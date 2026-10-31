@@ -12,8 +12,21 @@
 -- challenge_xp_events rows that only point at the user are anonymised by the
 -- existing ON DELETE SET NULL on user_id.
 --
+-- Also records one anonymous row (time only) in public.account_deletions.
+--
 -- Security: SECURITY DEFINER, but it only ever acts on auth.uid(), so a user can
 -- delete nobody but themselves. Not callable by anon.
+
+-- Anonymous deletion counter: one row per deleted account with ONLY the time.
+-- No user id, email, username or anything else, so it holds no personal data.
+-- Nobody can read it from the app (RLS on, no policies); query it in the SQL Editor:
+--   select date_trunc('week', deleted_at) as week, count(*) from public.account_deletions group by 1 order by 1;
+create table if not exists public.account_deletions (
+  id         bigint generated always as identity primary key,
+  deleted_at timestamptz not null default now()
+);
+alter table public.account_deletions enable row level security;
+revoke all on public.account_deletions from anon, authenticated;
 
 create or replace function public.delete_my_account()
 returns void
@@ -30,11 +43,17 @@ begin
   end if;
 
   select email into v_email from auth.users where id = v_uid;
+  if not found then
+    return;  -- already deleted (e.g. a double tap): do nothing, count nothing
+  end if;
 
   if v_email is not null then
     delete from public.friend_invitations
      where lower(invited_email) = lower(v_email);
   end if;
+
+  -- Count the deletion (time only) in the same transaction as the delete itself.
+  insert into public.account_deletions default values;
 
   delete from auth.users where id = v_uid;
 end;
