@@ -3922,11 +3922,133 @@ function DeleteAccountModal({ onCancel, onDeleted }: { onCancel: () => void; onD
   );
 }
 
-function ProfileMenu({ userId, username, onLogout, onPrivacy, onTerms, onInstall, installed, allTimeStats }: { userId: string; username: string; onLogout: () => void; onPrivacy: () => void; onTerms: () => void; onInstall: () => void; installed: boolean; allTimeStats: AllTimeStats }) {
+const FEEDBACK_MAX = 1000;
+
+interface FeedbackEntry { id: string; created_at: string; feedback_text: string }
+
+function FeedbackModal({ level, onClose }: { level: number; onClose: () => void }) {
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [mine, setMine] = useState<FeedbackEntry[]>([]);
+  const [showMine, setShowMine] = useState(false);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const canSend = text.trim().length > 0 && text.length <= FEEDBACK_MAX && !busy;
+
+  const loadMine = async () => {
+    const supabase = createClient();
+    const { data } = await supabase.from('user_feedback').select('id, created_at, feedback_text').order('created_at', { ascending: false }).limit(50);
+    setMine((data as FeedbackEntry[] | null) ?? []);
+  };
+  React.useEffect(() => { loadMine(); }, []);
+
+  const handleSend = async () => {
+    if (!canSend) return;
+    setBusy(true);
+    setError(null);
+    const supabase = createClient();
+    const { error: rpcError } = await supabase.rpc('submit_feedback', { p_text: text.trim(), p_level: level, p_source: 'profile' });
+    setBusy(false);
+    if (rpcError) {
+      setError(rpcError.message?.includes('rate_limited')
+        ? 'You have sent a lot of feedback today. Please try again tomorrow.'
+        : 'Could not send your feedback. Please try again, or email pontus.melin@gmail.com.');
+      return;
+    }
+    setSent(true);
+    setText('');
+    loadMine();
+  };
+
+  const handleDelete = async (id: string) => {
+    const supabase = createClient();
+    const { error: delError } = await supabase.from('user_feedback').delete().eq('id', id);
+    if (!delError) setMine((p) => p.filter((m) => m.id !== id));
+    setConfirmId(null);
+  };
+
+  return (
+    <SafeModalShell onBackdropClick={busy ? undefined : onClose}>
+      <div className="max-h-[85vh] overflow-y-auto rounded-3xl border p-6" style={{ backgroundColor: C.surface, borderColor: C.border }}>
+        <h2 className="text-xl font-bold" style={{ color: C.xp, ...SG }}>Help us improve WODXP!</h2>
+        {sent ? (
+          <div className="mt-4">
+            <p className="text-sm leading-relaxed" style={{ color: C.text }}>Thank you! Your feedback has been sent.</p>
+            <button onClick={() => { setSent(false); }} className="mt-3 text-xs font-medium underline" style={{ color: C.muted }}>Send more feedback</button>
+          </div>
+        ) : (
+          <>
+            <p className="mt-3 text-sm leading-relaxed" style={{ color: C.text }}>
+              What do you like about WODXP, and what is missing or could be better?
+            </p>
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value.slice(0, FEEDBACK_MAX))}
+              rows={6}
+              maxLength={FEEDBACK_MAX}
+              disabled={busy}
+              className="mt-3 w-full resize-none rounded-xl border px-4 py-3 text-sm outline-none"
+              style={{ borderColor: C.border, backgroundColor: C.bg, color: C.text }}
+              placeholder="Write your thoughts here…"
+            />
+            <p className="mt-1 text-right text-[11px]" style={{ color: C.muted }}>{text.length} / {FEEDBACK_MAX}</p>
+            {error && <p className="mt-2 text-sm" style={{ color: C.boss }}>{error}</p>}
+            <p className="mt-2 text-[11px] leading-relaxed" style={{ color: C.muted }}>
+              Your feedback is used to improve WODXP and can only be read by the app owner. Please don&apos;t write sensitive
+              personal information. You can delete your feedback below at any time. See our{' '}
+              <a href="/privacy" className="underline" style={{ color: C.xp }}>Privacy Policy</a>.
+            </p>
+          </>
+        )}
+        {mine.length > 0 && (
+          <div className="mt-4 border-t pt-3" style={{ borderColor: C.border }}>
+            <button onClick={() => setShowMine((v) => !v)} className="text-xs font-bold uppercase tracking-wider" style={{ color: C.muted, ...SG }}>
+              Your feedback ({mine.length}) {showMine ? '▲' : '▼'}
+            </button>
+            {showMine && (
+              <ul className="mt-2 space-y-2">
+                {mine.map((m) => (
+                  <li key={m.id} className="rounded-xl border p-3" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                    <p className="text-[11px]" style={{ color: C.muted }}>{new Date(m.created_at).toLocaleDateString()}</p>
+                    <p className="mt-1 whitespace-pre-wrap break-words text-sm" style={{ color: C.text }}>{m.feedback_text}</p>
+                    {confirmId === m.id ? (
+                      <div className="mt-2 flex items-center gap-3 text-xs">
+                        <span style={{ color: C.text }}>Delete this feedback?</span>
+                        <button onClick={() => handleDelete(m.id)} className="font-bold underline" style={{ color: C.boss }}>Yes, delete</button>
+                        <button onClick={() => setConfirmId(null)} className="underline" style={{ color: C.muted }}>Cancel</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setConfirmId(m.id)} className="mt-2 text-xs underline" style={{ color: C.muted }}>Delete</button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+        <div className="mt-5 flex gap-3">
+          <button onClick={onClose} disabled={busy} className="flex-1 rounded-2xl border py-3 text-sm font-bold disabled:opacity-50" style={{ borderColor: C.border, color: C.text, ...SG }}>
+            {sent ? 'Close' : 'Cancel'}
+          </button>
+          {!sent && (
+            <button onClick={handleSend} disabled={!canSend} className="flex-1 rounded-2xl py-3 text-sm font-bold disabled:opacity-40" style={{ backgroundColor: C.xp, color: '#04140A', ...SG }}>
+              {busy ? 'Sending…' : 'Send feedback'}
+            </button>
+          )}
+        </div>
+      </div>
+    </SafeModalShell>
+  );
+}
+
+function ProfileMenu({ userId, username, level, onLogout, onPrivacy, onTerms, onInstall, installed, allTimeStats }: { userId: string; username: string; level: number; onLogout: () => void; onPrivacy: () => void; onTerms: () => void; onInstall: () => void; installed: boolean; allTimeStats: AllTimeStats }) {
   const [showDelete, setShowDelete] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
   return (
     <div className="min-h-screen pb-24" style={{ backgroundColor: C.bg }}>
       {showDelete && <DeleteAccountModal onCancel={() => setShowDelete(false)} onDeleted={onLogout} />}
+      {showFeedback && <FeedbackModal level={level} onClose={() => setShowFeedback(false)} />}
       <header className="px-5 pt-6 pb-4">
         <p className="text-xs uppercase tracking-wider" style={{ color: C.muted }}>Account</p>
         <h1 className="text-2xl font-bold" style={SG}>{username}</h1>
@@ -3943,6 +4065,10 @@ function ProfileMenu({ userId, username, onLogout, onPrivacy, onTerms, onInstall
       <div className="px-5 pt-6 flex flex-col gap-3">
         <button onClick={onInstall} className="flex w-full items-center justify-between rounded-2xl border py-4 px-5 text-sm font-bold" style={{ borderColor: C.border, color: C.text, backgroundColor: C.surface, ...SG }}>
           <span>Add to Home Screen{installed && <span className="ml-2 text-xs font-medium" style={{ color: C.xp }}>Installed ✓</span>}</span>
+          <ChevronRight size={16} style={{ color: C.muted }} />
+        </button>
+        <button onClick={() => setShowFeedback(true)} className="flex w-full items-center justify-between rounded-2xl border py-4 px-5 text-sm font-bold" style={{ borderColor: C.border, color: C.text, backgroundColor: C.surface, ...SG }}>
+          Give Feedback
           <ChevronRight size={16} style={{ color: C.muted }} />
         </button>
         <button onClick={onPrivacy} className="flex w-full items-center justify-between rounded-2xl border py-4 px-5 text-sm font-bold" style={{ borderColor: C.border, color: C.text, backgroundColor: C.surface, ...SG }}>
@@ -5677,7 +5803,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     onOpen={(t) => { setSelectedTestId(t.id); setScreen('test'); }} />;
   else if (tab === 'exercises') content = <ExercisesScreen exercises={exercises} />;
   else if (tab === 'stats') content = <StatsScreen stats={stats} records={exerciseRecords} exercises={exercises} />;
-  else if (tab === 'profile') content = <ProfileMenu userId={user.id} username={user.username} onLogout={handleLogout} onPrivacy={() => router.push('/privacy')} onTerms={() => router.push('/terms')} onInstall={() => setShowInstallGuide(true)} installed={installed} allTimeStats={allTimeStats} />;
+  else if (tab === 'profile') content = <ProfileMenu userId={user.id} username={user.username} level={stats.level} onLogout={handleLogout} onPrivacy={() => router.push('/privacy')} onTerms={() => router.push('/terms')} onInstall={() => setShowInstallGuide(true)} installed={installed} allTimeStats={allTimeStats} />;
 
   return (
     <div style={{ backgroundColor: C.bg }}>
