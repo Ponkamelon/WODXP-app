@@ -1398,7 +1398,7 @@ function ExerciseVisual({ exercise, size = 90 }: { exercise: Exercise; size?: nu
       <img
         src={imageSrc}
         alt={exercise.name}
-        className="w-full max-w-xs rounded-2xl"
+        className="w-full max-w-xs"
         style={{ boxShadow: `0 0 24px ${EQUIPMENT_COLORS[equipment]}33` }}
       />
     );
@@ -4152,7 +4152,7 @@ function TestsScreen({ tests, results, level, available, onOpen, newIds }: {
             const last = rs[rs.length - 1];
             return (
               <button key={t.id} onClick={() => onOpen(t)} className="flex items-center gap-3 rounded-2xl border p-4 text-left" style={{ borderColor: freshIds.has(t.id) ? C.xp : C.border, backgroundColor: C.surface }}>
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl" style={{ backgroundColor: `${C.xp}1A` }}>
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden" style={{ backgroundColor: `${C.xp}1A`, borderRadius: FITNESS_TEST_IMAGES[t.id] ? 0 : 12 }}>
                   {FITNESS_TEST_IMAGES[t.id]
                     ? <img src={FITNESS_TEST_IMAGES[t.id]} alt="" className="h-full w-full object-cover" />
                     : <Timer size={20} color={C.xp} />}
@@ -4259,7 +4259,7 @@ function FitnessTestScreen({ test, results, totalWorkouts, userId, onBack, onSav
       <div className="rounded-2xl border p-4" style={{ borderColor: C.border, backgroundColor: C.surface }}>
         {FITNESS_TEST_IMAGES[test.id] && (
           <div className="mb-4 flex justify-center">
-            <img src={FITNESS_TEST_IMAGES[test.id]} alt={test.name} className="w-full max-w-xs rounded-2xl" style={{ boxShadow: `0 0 24px ${C.xp}33` }} />
+            <img src={FITNESS_TEST_IMAGES[test.id]} alt={test.name} className="w-full max-w-xs" style={{ boxShadow: `0 0 24px ${C.xp}33` }} />
           </div>
         )}
         <p className="text-sm font-bold" style={{ color: C.xp, ...SG }}>{test.challenge}</p>
