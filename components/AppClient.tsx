@@ -4025,13 +4025,115 @@ function FeedbackModal({ level, onClose }: { level: number; onClose: () => void 
   );
 }
 
+interface PremiumStatus { active: boolean; lifetime: boolean; premium_until: string | null }
+
+function premiumLabel(p: PremiumStatus | null): string {
+  if (!p || !p.active) return '';
+  if (p.lifetime) return 'Premium for as long as WODXP runs';
+  return p.premium_until ? `Premium until ${new Date(p.premium_until).toLocaleDateString()}` : 'Premium';
+}
+
+function AccessCodeModal({ status, onClose, onRedeemed }: { status: PremiumStatus | null; onClose: () => void; onRedeemed: (p: PremiumStatus) => void }) {
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<PremiumStatus | null>(null);
+  const canSend = code.replace(/[^A-Za-z0-9]/g, '').length >= 8 && !busy;
+
+  const handleRedeem = async () => {
+    if (!canSend) return;
+    setBusy(true);
+    setError(null);
+    const supabase = createClient();
+    const { data, error: rpcError } = await supabase.rpc('redeem_access_code', { p_code: code });
+    if (rpcError || !data) {
+      setError('Something went wrong. Please try again, or email pontus.melin@gmail.com.');
+      setBusy(false);
+      return;
+    }
+    if (data.ok !== true) {
+      setError(
+        data.error === 'too_many_attempts' ? 'Too many attempts. Please try again in 15 minutes.'
+        : data.error === 'already_lifetime' ? 'You already have Premium for as long as WODXP runs. Your code has not been used.'
+        : 'That code is not valid. Check it and try again.'
+      );
+      setBusy(false);
+      return;
+    }
+    const { data: fresh } = await supabase.rpc('get_my_premium');
+    const next: PremiumStatus = fresh ?? { active: true, lifetime: data.lifetime === true, premium_until: data.premium_until ?? null };
+    setDone(next);
+    onRedeemed(next);
+    setBusy(false);
+  };
+
+  return (
+    <SafeModalShell onBackdropClick={busy ? undefined : onClose}>
+      <div className="rounded-3xl border p-6" style={{ backgroundColor: C.surface, borderColor: C.border }}>
+        <h2 className="text-xl font-bold" style={{ color: C.xp, ...SG }}>Access code</h2>
+        {done ? (
+          <p className="mt-4 text-sm leading-relaxed" style={{ color: C.text }}>
+            Code accepted. <strong>{premiumLabel(done)}</strong>.
+          </p>
+        ) : (
+          <>
+            <p className="mt-3 text-sm leading-relaxed" style={{ color: C.text }}>
+              Got a code from us? Enter it to unlock Premium. Each code works once.
+            </p>
+            {status?.active && (
+              <p className="mt-2 text-xs" style={{ color: C.muted }}>
+                Now: {premiumLabel(status)}. A new code adds time after this.
+              </p>
+            )}
+            <input
+              type="text"
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              autoCapitalize="characters"
+              autoCorrect="off"
+              autoComplete="off"
+              spellCheck={false}
+              disabled={busy}
+              className="mt-4 w-full rounded-xl border px-4 py-3 text-sm tracking-widest outline-none"
+              style={{ borderColor: C.border, backgroundColor: C.bg, color: C.text, ...MO }}
+              placeholder="WODXP-XXXX-XXXX"
+              onKeyDown={(e) => { if (e.key === 'Enter') handleRedeem(); }}
+            />
+            {error && <p className="mt-3 text-sm" style={{ color: C.boss }}>{error}</p>}
+          </>
+        )}
+        <div className="mt-5 flex gap-3">
+          <button onClick={onClose} disabled={busy} className="flex-1 rounded-2xl border py-3 text-sm font-bold disabled:opacity-50" style={{ borderColor: C.border, color: C.text, ...SG }}>
+            {done ? 'Close' : 'Cancel'}
+          </button>
+          {!done && (
+            <button onClick={handleRedeem} disabled={!canSend} className="flex-1 rounded-2xl py-3 text-sm font-bold disabled:opacity-40" style={{ backgroundColor: C.xp, color: '#04140A', ...SG }}>
+              {busy ? 'Checking…' : 'Redeem'}
+            </button>
+          )}
+        </div>
+      </div>
+    </SafeModalShell>
+  );
+}
+
 function ProfileMenu({ userId, username, level, onLogout, onPrivacy, onTerms, onInstall, installed, allTimeStats }: { userId: string; username: string; level: number; onLogout: () => void; onPrivacy: () => void; onTerms: () => void; onInstall: () => void; installed: boolean; allTimeStats: AllTimeStats }) {
   const [showDelete, setShowDelete] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [showCode, setShowCode] = useState(false);
+  const [premium, setPremium] = useState<PremiumStatus | null>(null);
+  React.useEffect(() => {
+    let cancelled = false;
+    createClient().rpc('get_my_premium').then(({ data, error }) => {
+      if (!cancelled && !error && data) setPremium(data as PremiumStatus);
+    });
+    return () => { cancelled = true; };
+  }, []);
   return (
     <div className="min-h-screen pb-24" style={{ backgroundColor: C.bg }}>
       {showDelete && <DeleteAccountModal onCancel={() => setShowDelete(false)} onDeleted={onLogout} />}
       {showFeedback && <FeedbackModal level={level} onClose={() => setShowFeedback(false)} />}
+      {showCode && <AccessCodeModal status={premium} onClose={() => setShowCode(false)} onRedeemed={setPremium} />}
       <header className="px-5 pt-6 pb-4">
         <p className="text-xs uppercase tracking-wider" style={{ color: C.muted }}>Account</p>
         <h1 className="text-2xl font-bold" style={SG}>{username}</h1>
@@ -4048,6 +4150,10 @@ function ProfileMenu({ userId, username, level, onLogout, onPrivacy, onTerms, on
       <div className="px-5 pt-6 flex flex-col gap-3">
         <button onClick={onInstall} className="flex w-full items-center justify-between rounded-2xl border py-4 px-5 text-sm font-bold" style={{ borderColor: C.border, color: C.text, backgroundColor: C.surface, ...SG }}>
           <span>Add to Home Screen{installed && <span className="ml-2 text-xs font-medium" style={{ color: C.xp }}>Installed ✓</span>}</span>
+          <ChevronRight size={16} style={{ color: C.muted }} />
+        </button>
+        <button onClick={() => setShowCode(true)} className="flex w-full items-center justify-between rounded-2xl border py-4 px-5 text-sm font-bold" style={{ borderColor: C.border, color: C.text, backgroundColor: C.surface, ...SG }}>
+          <span>Access code{premium?.active && <span className="ml-2 text-xs font-medium" style={{ color: C.xp }}>{premiumLabel(premium)}</span>}</span>
           <ChevronRight size={16} style={{ color: C.muted }} />
         </button>
         <button onClick={() => setShowFeedback(true)} className="flex w-full items-center justify-between rounded-2xl border py-4 px-5 text-sm font-bold" style={{ borderColor: C.border, color: C.text, backgroundColor: C.surface, ...SG }}>

@@ -85,7 +85,11 @@ export default async function PrivacyPage() {
           <ul className="list-disc pl-5 space-y-1">
             <li>If you use Profile → Give Feedback: an optional star rating (1–5), the text you write, the date, and your level at the time. It is linked to your account, is not public, and can only be read by the app owner. You can send one feedback per level. To have your feedback deleted, email us at pontus.melin@gmail.com. Please do not include sensitive personal information in your feedback.</li>
           </ul>
-          <p style={{ color: C.text, fontWeight: 600 }} className="pt-2">2.5 Information We Do Not Currently Collect</p>
+          <p style={{ color: C.text, fontWeight: 600 }} className="pt-2">2.5 Access Codes</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>If you redeem an access code under Profile → Access code: which code you used, when, and how long your Premium access lasts. This is linked to your account and removed when you delete your account (the code itself stays marked as used). Failed attempts are saved temporarily (up to one day) to limit guessing.</li>
+          </ul>
+          <p style={{ color: C.text, fontWeight: 600 }} className="pt-2">2.6 Information We Do Not Currently Collect</p>
           <ul className="list-disc pl-5 space-y-1">
             <li>We do not use third-party advertising trackers.</li>
             <li>We do not collect precise location data.</li>
