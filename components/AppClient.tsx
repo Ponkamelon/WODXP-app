@@ -3924,25 +3924,23 @@ function DeleteAccountModal({ onCancel, onDeleted }: { onCancel: () => void; onD
 
 const FEEDBACK_MAX = 1000;
 
-interface FeedbackEntry { id: string; created_at: string; feedback_text: string; rating: number | null }
-
 function FeedbackModal({ level, onClose }: { level: number; onClose: () => void }) {
   const [text, setText] = useState('');
   const [rating, setRating] = useState(0);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [mine, setMine] = useState<FeedbackEntry[]>([]);
-  const [showMine, setShowMine] = useState(false);
-  const [confirmId, setConfirmId] = useState<string | null>(null);
+  // null = still checking. true = feedback already sent for this level (one per level).
+  const [alreadySent, setAlreadySent] = useState<boolean | null>(null);
   const canSend = (text.trim().length > 0 || rating > 0) && text.length <= FEEDBACK_MAX && !busy;
 
-  const loadMine = async () => {
-    const supabase = createClient();
-    const { data } = await supabase.from('user_feedback').select('id, created_at, feedback_text, rating').order('created_at', { ascending: false }).limit(50);
-    setMine((data as FeedbackEntry[] | null) ?? []);
-  };
-  React.useEffect(() => { loadMine(); }, []);
+  React.useEffect(() => {
+    let cancelled = false;
+    createClient().rpc('has_feedback_for_level', { p_level: level }).then(({ data, error: rpcError }) => {
+      if (!cancelled) setAlreadySent(rpcError ? false : data === true);
+    });
+    return () => { cancelled = true; };
+  }, [level]);
 
   const handleSend = async () => {
     if (!canSend) return;
@@ -3952,22 +3950,14 @@ function FeedbackModal({ level, onClose }: { level: number; onClose: () => void 
     const { error: rpcError } = await supabase.rpc('submit_feedback', { p_text: text.trim(), p_level: level, p_source: 'profile', p_rating: rating > 0 ? rating : null });
     setBusy(false);
     if (rpcError) {
-      setError(rpcError.message?.includes('rate_limited')
-        ? 'You have sent a lot of feedback today. Please try again tomorrow.'
-        : 'Could not send your feedback. Please try again, or email pontus.melin@gmail.com.');
+      if (rpcError.message?.includes('already_sent_for_level')) { setAlreadySent(true); return; }
+      setError('Could not send your feedback. Please try again, or email pontus.melin@gmail.com.');
       return;
     }
     setSent(true);
+    setAlreadySent(true);
     setText('');
     setRating(0);
-    loadMine();
-  };
-
-  const handleDelete = async (id: string) => {
-    const supabase = createClient();
-    const { error: delError } = await supabase.from('user_feedback').delete().eq('id', id);
-    if (!delError) setMine((p) => p.filter((m) => m.id !== id));
-    setConfirmId(null);
   };
 
   return (
@@ -3975,10 +3965,15 @@ function FeedbackModal({ level, onClose }: { level: number; onClose: () => void 
       <div className="max-h-[85vh] overflow-y-auto rounded-3xl border p-6" style={{ backgroundColor: C.surface, borderColor: C.border }}>
         <h2 className="text-xl font-bold" style={{ color: C.xp, ...SG }}>Help us improve WODXP!</h2>
         {sent ? (
-          <div className="mt-4">
-            <p className="text-sm leading-relaxed" style={{ color: C.text }}>Thank you! Your feedback has been sent.</p>
-            <button onClick={() => { setSent(false); }} className="mt-3 text-xs font-medium underline" style={{ color: C.muted }}>Send more feedback</button>
-          </div>
+          <p className="mt-4 text-sm leading-relaxed" style={{ color: C.text }}>
+            Thank you! Your feedback has been sent. You can send new feedback when you reach the next level.
+          </p>
+        ) : alreadySent === null ? (
+          <p className="mt-4 text-sm" style={{ color: C.muted }}>Loading…</p>
+        ) : alreadySent ? (
+          <p className="mt-4 text-sm leading-relaxed" style={{ color: C.text }}>
+            You have already sent feedback at level {level}. Thank you! You can send new feedback when you reach the next level.
+          </p>
         ) : (
           <>
             <p className="mt-3 text-sm leading-relaxed" style={{ color: C.text }}>
@@ -4008,43 +4003,18 @@ function FeedbackModal({ level, onClose }: { level: number; onClose: () => void 
             <p className="mt-1 text-right text-[11px]" style={{ color: C.muted }}>{text.length} / {FEEDBACK_MAX}</p>
             {error && <p className="mt-2 text-sm" style={{ color: C.boss }}>{error}</p>}
             <p className="mt-2 text-[11px] leading-relaxed" style={{ color: C.muted }}>
-              Your feedback is used to improve WODXP and can only be read by the app owner. Please don&apos;t write sensitive
-              personal information. You can delete your feedback below at any time. See our{' '}
+              You can send one feedback per level. It is used to improve WODXP and can only be read by the app owner.
+              Please don&apos;t write sensitive personal information. To have your feedback deleted, email
+              pontus.melin@gmail.com. See our{' '}
               <a href="/privacy" className="underline" style={{ color: C.xp }}>Privacy Policy</a>.
             </p>
           </>
         )}
-        {mine.length > 0 && (
-          <div className="mt-4 border-t pt-3" style={{ borderColor: C.border }}>
-            <button onClick={() => setShowMine((v) => !v)} className="text-xs font-bold uppercase tracking-wider" style={{ color: C.muted, ...SG }}>
-              Your feedback ({mine.length}) {showMine ? '▲' : '▼'}
-            </button>
-            {showMine && (
-              <ul className="mt-2 space-y-2">
-                {mine.map((m) => (
-                  <li key={m.id} className="rounded-xl border p-3" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                    <p className="text-[11px]" style={{ color: C.muted }}>{new Date(m.created_at).toLocaleDateString()}{m.rating ? ` · ${'★'.repeat(m.rating)}${'☆'.repeat(5 - m.rating)}` : ''}</p>
-                    {m.feedback_text && <p className="mt-1 whitespace-pre-wrap break-words text-sm" style={{ color: C.text }}>{m.feedback_text}</p>}
-                    {confirmId === m.id ? (
-                      <div className="mt-2 flex items-center gap-3 text-xs">
-                        <span style={{ color: C.text }}>Delete this feedback?</span>
-                        <button onClick={() => handleDelete(m.id)} className="font-bold underline" style={{ color: C.boss }}>Yes, delete</button>
-                        <button onClick={() => setConfirmId(null)} className="underline" style={{ color: C.muted }}>Cancel</button>
-                      </div>
-                    ) : (
-                      <button onClick={() => setConfirmId(m.id)} className="mt-2 text-xs underline" style={{ color: C.muted }}>Delete</button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
         <div className="mt-5 flex gap-3">
           <button onClick={onClose} disabled={busy} className="flex-1 rounded-2xl border py-3 text-sm font-bold disabled:opacity-50" style={{ borderColor: C.border, color: C.text, ...SG }}>
-            {sent ? 'Close' : 'Cancel'}
+            {sent || alreadySent ? 'Close' : 'Cancel'}
           </button>
-          {!sent && (
+          {!sent && alreadySent === false && (
             <button onClick={handleSend} disabled={!canSend} className="flex-1 rounded-2xl py-3 text-sm font-bold disabled:opacity-40" style={{ backgroundColor: C.xp, color: '#04140A', ...SG }}>
               {busy ? 'Sending…' : 'Send feedback'}
             </button>
