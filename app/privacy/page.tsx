@@ -81,7 +81,11 @@ export default async function PrivacyPage() {
             <li>Challenges sent or received between users</li>
             <li>Leaderboard rankings</li>
           </ul>
-          <p style={{ color: C.text, fontWeight: 600 }} className="pt-2">2.4 Information We Do Not Currently Collect</p>
+          <p style={{ color: C.text, fontWeight: 600 }} className="pt-2">2.4 Feedback You Send Us</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>If you use Profile → Give Feedback: the text you write, the date, and your level at the time. It is linked to your account, is not public, and can only be read by the app owner. You can see and delete your own feedback in the App. Please do not include sensitive personal information in your feedback.</li>
+          </ul>
+          <p style={{ color: C.text, fontWeight: 600 }} className="pt-2">2.5 Information We Do Not Currently Collect</p>
           <ul className="list-disc pl-5 space-y-1">
             <li>We do not use third-party advertising trackers.</li>
             <li>We do not collect precise location data.</li>
@@ -100,6 +104,7 @@ export default async function PrivacyPage() {
             <li>Power social features such as leaderboards and friend challenges (if enabled)</li>
             <li>Maintain the security and functionality of the App</li>
             <li>Communicate with you about your account (e.g., password resets)</li>
+            <li>Read and act on the feedback you choose to send, to improve the App</li>
           </ul>
           <p>We do not sell your personal data, and we do not share it with third parties for advertising or marketing purposes.</p>
         </Section>
@@ -138,6 +143,10 @@ export default async function PrivacyPage() {
             We retain your account and fitness data for as long as your account is active. If you delete your
             account, we will delete or anonymize your personal data within 90 days, except where we are required
             to retain it for legal or security purposes.
+          </p>
+          <p>
+            Feedback you send is kept for up to 12 months and is then deleted. You can delete your own feedback at any
+            time in the App, and it is deleted together with your account.
           </p>
         </Section>
 
