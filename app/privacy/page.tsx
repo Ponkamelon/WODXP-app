@@ -83,7 +83,7 @@ export default async function PrivacyPage() {
           </ul>
           <p style={{ color: C.text, fontWeight: 600 }} className="pt-2">2.4 Feedback You Send Us</p>
           <ul className="list-disc pl-5 space-y-1">
-            <li>If you use Profile → Give Feedback: the text you write, the date, and your level at the time. It is linked to your account, is not public, and can only be read by the app owner. You can see and delete your own feedback in the App. Please do not include sensitive personal information in your feedback.</li>
+            <li>If you use Profile → Give Feedback: an optional star rating (1–5), the text you write, the date, and your level at the time. It is linked to your account, is not public, and can only be read by the app owner. You can send one feedback per level. To have your feedback deleted, email us at pontus.melin@gmail.com. Please do not include sensitive personal information in your feedback.</li>
           </ul>
           <p style={{ color: C.text, fontWeight: 600 }} className="pt-2">2.5 Information We Do Not Currently Collect</p>
           <ul className="list-disc pl-5 space-y-1">
@@ -145,8 +145,8 @@ export default async function PrivacyPage() {
             to retain it for legal or security purposes.
           </p>
           <p>
-            Feedback you send is kept for up to 12 months and is then deleted. You can delete your own feedback at any
-            time in the App, and it is deleted together with your account.
+            Feedback you send is kept for up to 12 months and is then deleted. You can ask us to delete it at any time,
+            and it is deleted together with your account.
           </p>
         </Section>
 
