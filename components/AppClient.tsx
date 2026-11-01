@@ -7,7 +7,7 @@ import { motion, useMotionValue, animate } from 'motion/react';
 import {
   Flame, ChevronRight, Search, Lock, Trophy, Swords, Plus, Crown,
   TrendingUp, Award, Sparkles, Target, Clock, Gauge,
-  Minus, Check, ArrowLeft, Users, Timer, RefreshCw,
+  Minus, Check, ArrowLeft, Users, Timer, RefreshCw, Star,
 } from 'lucide-react';
 import {
   CATEGORY_ICONS, CATEGORY_LABELS, EQUIPMENT_LABELS, EQUIPMENT_COLORS,
@@ -3924,21 +3924,22 @@ function DeleteAccountModal({ onCancel, onDeleted }: { onCancel: () => void; onD
 
 const FEEDBACK_MAX = 1000;
 
-interface FeedbackEntry { id: string; created_at: string; feedback_text: string }
+interface FeedbackEntry { id: string; created_at: string; feedback_text: string; rating: number | null }
 
 function FeedbackModal({ level, onClose }: { level: number; onClose: () => void }) {
   const [text, setText] = useState('');
+  const [rating, setRating] = useState(0);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mine, setMine] = useState<FeedbackEntry[]>([]);
   const [showMine, setShowMine] = useState(false);
   const [confirmId, setConfirmId] = useState<string | null>(null);
-  const canSend = text.trim().length > 0 && text.length <= FEEDBACK_MAX && !busy;
+  const canSend = (text.trim().length > 0 || rating > 0) && text.length <= FEEDBACK_MAX && !busy;
 
   const loadMine = async () => {
     const supabase = createClient();
-    const { data } = await supabase.from('user_feedback').select('id, created_at, feedback_text').order('created_at', { ascending: false }).limit(50);
+    const { data } = await supabase.from('user_feedback').select('id, created_at, feedback_text, rating').order('created_at', { ascending: false }).limit(50);
     setMine((data as FeedbackEntry[] | null) ?? []);
   };
   React.useEffect(() => { loadMine(); }, []);
@@ -3948,7 +3949,7 @@ function FeedbackModal({ level, onClose }: { level: number; onClose: () => void 
     setBusy(true);
     setError(null);
     const supabase = createClient();
-    const { error: rpcError } = await supabase.rpc('submit_feedback', { p_text: text.trim(), p_level: level, p_source: 'profile' });
+    const { error: rpcError } = await supabase.rpc('submit_feedback', { p_text: text.trim(), p_level: level, p_source: 'profile', p_rating: rating > 0 ? rating : null });
     setBusy(false);
     if (rpcError) {
       setError(rpcError.message?.includes('rate_limited')
@@ -3958,6 +3959,7 @@ function FeedbackModal({ level, onClose }: { level: number; onClose: () => void 
     }
     setSent(true);
     setText('');
+    setRating(0);
     loadMine();
   };
 
@@ -3980,7 +3982,18 @@ function FeedbackModal({ level, onClose }: { level: number; onClose: () => void 
         ) : (
           <>
             <p className="mt-3 text-sm leading-relaxed" style={{ color: C.text }}>
-              What do you like about WODXP, and what is missing or could be better?
+              How do you like WODXP so far?
+            </p>
+            <div className="mt-2 flex items-center gap-1" role="radiogroup" aria-label="Rating from 1 to 5 stars">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button key={n} type="button" role="radio" aria-checked={rating === n} aria-label={`${n} star${n > 1 ? 's' : ''}`}
+                  onClick={() => setRating(rating === n ? 0 : n)} disabled={busy} className="p-1">
+                  <Star size={30} strokeWidth={2} fill={n <= rating ? C.xp : 'none'} style={{ color: n <= rating ? C.xp : C.muted }} />
+                </button>
+              ))}
+            </div>
+            <p className="mt-3 text-sm leading-relaxed" style={{ color: C.text }}>
+              What do you like, and what is missing or could be better? (optional)
             </p>
             <textarea
               value={text}
@@ -4010,8 +4023,8 @@ function FeedbackModal({ level, onClose }: { level: number; onClose: () => void 
               <ul className="mt-2 space-y-2">
                 {mine.map((m) => (
                   <li key={m.id} className="rounded-xl border p-3" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                    <p className="text-[11px]" style={{ color: C.muted }}>{new Date(m.created_at).toLocaleDateString()}</p>
-                    <p className="mt-1 whitespace-pre-wrap break-words text-sm" style={{ color: C.text }}>{m.feedback_text}</p>
+                    <p className="text-[11px]" style={{ color: C.muted }}>{new Date(m.created_at).toLocaleDateString()}{m.rating ? ` · ${'★'.repeat(m.rating)}${'☆'.repeat(5 - m.rating)}` : ''}</p>
+                    {m.feedback_text && <p className="mt-1 whitespace-pre-wrap break-words text-sm" style={{ color: C.text }}>{m.feedback_text}</p>}
                     {confirmId === m.id ? (
                       <div className="mt-2 flex items-center gap-3 text-xs">
                         <span style={{ color: C.text }}>Delete this feedback?</span>
