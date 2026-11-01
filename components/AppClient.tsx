@@ -2662,6 +2662,11 @@ function startingLog(ex: Exercise, records: Record<string, ExerciseRecord>): { w
 /** Static holds (plank, wall sit, farmer hold…) get a timer in the workout.
  *  The database has no "hold" flag, so this is decided from the name: dynamic
  *  plank/hold variants (rows, drags, taps, sit-ups, dead bugs…) are excluded. */
+/** "Run" is a run-in-place: it gets the same hands-free timer as the holds, labelled for running. */
+function isRunExercise(ex: { name: string }): boolean {
+  return /^run$/i.test(ex.name.trim());
+}
+
 function isHoldExercise(ex: { name: string; default_reps: number }): boolean {
   const n = ex.name;
   if (/\b(row|drag|pull-through|tap|up-down|complex|sit-up|deadlift|dead bug|carry|press|get-up|lean|bridge progression)\b/i.test(n)) return false;
@@ -2699,10 +2704,12 @@ const HOLD_REST_SECONDS = 3;
  * keep holding the weight for the whole set. After the last rep it resets, ready
  * for the next set.
  */
-function HoldTimer({ accent, reps }: { accent: string; reps: number }) {
+function HoldTimer({ accent, reps, kind = 'hold' }: { accent: string; reps: number; kind?: 'hold' | 'run' }) {
+  const noun = kind === 'run' ? 'run' : 'hold';
+  const initialSeconds = kind === 'run' ? 60 : 30;
   const [open, setOpen] = useState(false);
-  const [target, setTarget] = useState(30);
-  const [remaining, setRemaining] = useState(30);
+  const [target, setTarget] = useState(initialSeconds);
+  const [remaining, setRemaining] = useState(initialSeconds);
   const [running, setRunning] = useState(false);
   const [view, setView] = useState<{ phase: 'idle' | 'hold' | 'rest' | 'done'; rep: number }>({ phase: 'idle', rep: 0 });
   const phaseRef = React.useRef<'idle' | 'hold' | 'rest' | 'done'>('idle');
@@ -2768,19 +2775,19 @@ function HoldTimer({ accent, reps }: { accent: string; reps: number }) {
     return (
       <button onClick={() => setOpen(true)} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-bold"
         style={{ borderColor: `${accent}88`, color: accent, backgroundColor: `${accent}10`, ...SG }}>
-        <Timer size={14} /> Hold timer
+        <Timer size={14} /> {kind === 'run' ? 'Run timer' : 'Hold timer'}
       </button>
     );
   }
   const resting = view.phase === 'rest';
-  const statusText = view.phase === 'done' ? `All ${reps} hold${reps > 1 ? 's' : ''} done! Tap Complete Set.`
+  const statusText = view.phase === 'done' ? `All ${reps} ${noun}${reps > 1 ? 's' : ''} done! Tap Complete Set.`
     : resting ? `Rest — rep ${view.rep + 1} of ${reps} starts in ${remaining}…`
-    : view.phase === 'hold' ? (reps > 1 ? `Rep ${view.rep} of ${reps} — hold steady…` : 'Hold steady…')
-    : `${reps} × ${target} sec hold${reps > 1 ? `, ${HOLD_REST_SECONDS} sec rest between` : ''} — adjust with − / +`;
+    : view.phase === 'hold' ? (reps > 1 ? `Rep ${view.rep} of ${reps} — ${kind === 'run' ? 'keep running…' : 'hold steady…'}` : (kind === 'run' ? 'Keep running…' : 'Hold steady…'))
+    : `${reps} × ${target} sec ${noun}${reps > 1 ? `, ${HOLD_REST_SECONDS} sec rest between` : ''} — adjust with − / +`;
   return (
     <div className="mt-3 rounded-xl border px-3 py-3" style={{ borderColor: `${accent}88`, backgroundColor: `${accent}10` }}>
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: C.muted, ...SG }}>Hold timer{reps > 1 ? ` · ${reps} reps` : ''}</span>
+        <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: C.muted, ...SG }}>{kind === 'run' ? 'Run timer' : 'Hold timer'}{reps > 1 ? ` · ${reps} reps` : ''}</span>
         <button onClick={() => { setRunning(false); setOpen(false); }} aria-label="Close timer" className="px-1 text-lg leading-none" style={{ color: C.muted }}>×</button>
       </div>
       <div className="mt-1 flex items-center justify-center gap-4">
@@ -2987,7 +2994,7 @@ function WorkoutScreen({ exercises: initialExercises, pool, userId, durationMinu
                   Reset to default ({ex.default_weight_kg > 0 ? `${ex.default_weight_kg} kg × ` : ''}{ex.default_reps} reps × {ex.default_sets} sets)
                 </button>
               )}
-              {!isDone && isHoldExercise(ex) && <HoldTimer key={ex.id} accent={EQUIPMENT_COLORS[equipment]} reps={log.reps} />}
+              {!isDone && (isHoldExercise(ex) || isRunExercise(ex)) && <HoldTimer key={ex.id} accent={EQUIPMENT_COLORS[equipment]} reps={log.reps} kind={isRunExercise(ex) ? 'run' : 'hold'} />}
               <LedBorderButton onClick={() => completeSet(ex.id, log.sets)} disabled={isDone} radius={12}
                 className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-3 font-bold"
                 style={{ backgroundColor: isDone ? C.raised : C.xp, color: isDone ? C.xp : '#04140A', ...SG }}>
