@@ -118,7 +118,7 @@ function recordBestLabel(rec: ExerciseRecord): string {
  *  boss — see clear_level_challenge / attempt_boss_battle in the DB. */
 function getLevelProgress(stats: UserStats, levelChallenges: LevelChallenge[], bossBattles: BossBattle[]) {
   const pendingLevel = stats.level + 1;
-  const isBossPending = pendingLevel % 5 === 0;
+  const isBossPending = bossBattles.some((b) => b.level === pendingLevel); // data-driven: a boss row exists for this level
   const isComplete = pendingLevel > 50;
   const derivedLevel = xpDerivedLevel(stats.xp_total);
   const isUnlocked = !isComplete && derivedLevel >= pendingLevel;
