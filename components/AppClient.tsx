@@ -2494,9 +2494,9 @@ function GeneratorScreen({ exercises, totalExerciseCount, records, onBack, onSta
     </button>
   );
 
-  const ToggleOpt = ({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) => (
+  const ToggleOpt = ({ label, active, onClick, color }: { label: string; active: boolean; onClick: () => void; color: string }) => (
     <button onClick={onClick} className="flex-1 rounded-xl border py-3 text-sm font-semibold"
-      style={{ borderColor: active ? C.xp : C.border, backgroundColor: active ? `${C.xp}1A` : C.surface, color: active ? C.xp : C.text, ...SG }}>
+      style={{ borderColor: active ? color : C.border, backgroundColor: active ? `${color}1A` : C.surface, color: active ? color : C.text, ...SG }}>
       {label}
     </button>
   );
@@ -2520,9 +2520,9 @@ function GeneratorScreen({ exercises, totalExerciseCount, records, onBack, onSta
             <span style={{ color: C.kettlebell }}>●</span> Equipment <span className="normal-case" style={{ color: C.muted }}>(tap to select any combination)</span>
           </p>
           <div className="flex gap-2">
-            <ToggleOpt label="Kettlebell" active={equipment.has('kettlebell')} onClick={() => toggleEquipment('kettlebell')} />
-            <ToggleOpt label="Dumbbell" active={equipment.has('dumbbell')} onClick={() => toggleEquipment('dumbbell')} />
-            <ToggleOpt label="Bodyweight" active={equipment.has('bodyweight')} onClick={() => toggleEquipment('bodyweight')} />
+            <ToggleOpt label="Kettlebell" color={EQUIPMENT_COLORS.kettlebell} active={equipment.has('kettlebell')} onClick={() => toggleEquipment('kettlebell')} />
+            <ToggleOpt label="Dumbbell" color={EQUIPMENT_COLORS.dumbbell} active={equipment.has('dumbbell')} onClick={() => toggleEquipment('dumbbell')} />
+            <ToggleOpt label="Bodyweight" color={EQUIPMENT_COLORS.bodyweight} active={equipment.has('bodyweight')} onClick={() => toggleEquipment('bodyweight')} />
           </div>
         </div>
         <div>
@@ -2868,11 +2868,11 @@ function WorkoutScreen({ exercises: initialExercises, pool, userId, durationMinu
 
   const earlyQuitThreshold = durationMinutes * 60 * 0.3;
 
-  // The back arrow always leaves immediately — nothing is saved, so there's
-  // no XP to gate here. The confirmation instead belongs on the action that
-  // actually CLAIMS a reward: pressing Finish & Save suspiciously fast is
-  // the real "gaming the system" signal, not simply backing out.
-  const handleBackPress = () => onBack();
+  // The back arrow asks first — it's easy to hit by accident mid-session and
+  // leaving throws the whole session away (nothing is saved). The separate
+  // early-finish check below still guards the Finish & Save button.
+  const [leaveConfirm, setLeaveConfirm] = useState(false);
+  const handleBackPress = () => setLeaveConfirm(true);
 
   const handleFinish = async () => {
     setSaving(true);
@@ -3015,6 +3015,15 @@ function WorkoutScreen({ exercises: initialExercises, pool, userId, durationMinu
         </LedBorderButton>
       </div>
       {viewing && <ExerciseDetailModal exercise={viewing} onClose={() => setViewing(null)} />}
+      {leaveConfirm && (
+        <QuitConfirmModal
+          title="End this workout?"
+          body="Your session won't be saved and you won't get any XP for it."
+          pair={{ keepTraining: 'Keep training', quit: 'End workout' }}
+          onKeepTraining={() => setLeaveConfirm(false)}
+          onQuit={onBack}
+        />
+      )}
       {quitConfirmIndex !== null && (
         <QuitConfirmModal
           pair={QUIT_CONFIRM_PAIRS[quitConfirmIndex]}
@@ -3059,16 +3068,16 @@ function SafeModalShell({ children, onBackdropClick }: { children: React.ReactNo
   );
 }
 
-function QuitConfirmModal({ pair, onKeepTraining, onQuit }: {
-  pair: { keepTraining: string; quit: string }; onKeepTraining: () => void; onQuit: () => void;
+function QuitConfirmModal({ pair, onKeepTraining, onQuit, title = 'Leaving already?', body = "You're not far into this one yet — quitting now means no XP for the session." }: {
+  pair: { keepTraining: string; quit: string }; onKeepTraining: () => void; onQuit: () => void; title?: string; body?: string;
 }) {
   return (
     <SafeModalShell>
       <div className="w-full max-w-sm rounded-3xl border p-6 text-center" style={{ borderColor: C.border, backgroundColor: C.surface }}>
         <img src="/icon-512.png" alt="WODXP" className="mx-auto h-16 w-16 rounded-2xl" />
-        <h2 className="mt-4 text-lg font-bold" style={SG}>Leaving already?</h2>
+        <h2 className="mt-4 text-lg font-bold" style={SG}>{title}</h2>
         <p className="mt-1 text-sm" style={{ color: C.muted }}>
-          You're not far into this one yet — quitting now means no XP for the session.
+          {body}
         </p>
         <div className="mt-6 flex flex-col gap-2">
           <button onClick={onKeepTraining} className="rounded-2xl py-3.5 text-sm font-bold transition-transform active:scale-[0.96]" style={{ backgroundColor: C.xp, color: '#04140A', ...SG }}>
