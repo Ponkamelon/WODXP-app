@@ -3093,6 +3093,25 @@ function QuitConfirmModal({ pair, onKeepTraining, onQuit, title = 'Leaving alrea
   );
 }
 
+/** "Welcome back" after a rest day that followed a 5+ day streak. */
+function RestBonusModal({ xp, streak, onClose }: { xp: number; streak: number; onClose: () => void }) {
+  return (
+    <SafeModalShell onBackdropClick={onClose}>
+      <div className="w-full max-w-sm rounded-3xl border p-6 text-center" style={{ borderColor: C.xp, backgroundColor: C.surface, boxShadow: `0 0 24px ${C.xp}33` }}>
+        <img src="/icon-512.png" alt="WODXP" className="mx-auto h-16 w-16 rounded-2xl" />
+        <h2 className="mt-4 text-lg font-bold" style={SG}>Welcome back!</h2>
+        <p className="mt-1 text-sm" style={{ color: C.muted }}>
+          A rest day after a {streak}-day streak is part of training. Here's a bonus for recovering well.
+        </p>
+        <p className="mt-4 text-3xl font-bold" style={{ color: C.xp, ...MO }}>+{xp} XP</p>
+        <button onClick={onClose} className="mt-6 w-full rounded-2xl py-3.5 text-sm font-bold transition-transform active:scale-[0.96]" style={{ backgroundColor: C.xp, color: '#04140A', ...SG }}>
+          Let's go
+        </button>
+      </div>
+    </SafeModalShell>
+  );
+}
+
 // ─── Streak & Level-up messages ────────────────────────────────────────────────
 const STREAK_MESSAGES: Record<3 | 5 | 7, string[]> = {
   3: [
@@ -5657,6 +5676,22 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     return data;
   };
 
+  // Rest-day "welcome back" bonus: after a 5+ day streak and a rest day, the
+  // first app open pays +25 XP once per streak (decided and enforced server-side).
+  const [restBonus, setRestBonus] = useState<{ xp: number; streak: number } | null>(null);
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc('claim_rest_bonus');
+      if (cancelled || error || !data || !data.granted) return;
+      setRestBonus({ xp: data.xp ?? 25, streak: data.streak ?? 5 });
+      refreshStats();
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Movements unlocked (the `exercises` list) are filtered server-side by
   // attribute level at page load — like All-Time Stats, they'd stay frozen
   // after a workout unless explicitly refetched. Returns how many NEW
@@ -5925,6 +5960,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
           );
         })}
       </nav>
+      {restBonus && <RestBonusModal xp={restBonus.xp} streak={restBonus.streak} onClose={() => setRestBonus(null)} />}
       {showInstallGuide && (
         <InstallGuideModal installEvent={installEvent} onClose={() => setShowInstallGuide(false)} onInstalled={() => { setInstalled(true); setInstallEvent(null); }} />
       )}
