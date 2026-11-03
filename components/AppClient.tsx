@@ -2130,9 +2130,10 @@ function BossResultScreen({ result, bossName, onHome }: {
  * (overall level hasn't reached their unlock_level yet) render dimmed
  * with a dark overlay; unlocked ones render clearly and are tappable.
  */
-function WodXpScreen({ stats, classicWods, summary, wodMedals, onOpenWod }: {
+function WodXpScreen({ stats, classicWods, summary, wodMedals, onOpenWod, premiumLocked, onLockedTap, onEnterCode }: {
   stats: UserStats; classicWods: ClassicWod[]; summary: { completed: number; gold: number; silver: number; bronze: number };
   wodMedals: Record<number, string>; onOpenWod: (wod: ClassicWod) => void;
+  premiumLocked: boolean; onLockedTap: () => void; onEnterCode: () => void;
 }) {
   // Title tiers by gold-medal count — "WOD Master" and "Legend of the Box"
   // are the two named tiers from the spec; the ones in between are a
@@ -2153,6 +2154,7 @@ function WodXpScreen({ stats, classicWods, summary, wodMedals, onOpenWod }: {
         </p>
       </header>
 
+      {premiumLocked && <PremiumLockBanner feature="WOD XP" onEnterCode={onEnterCode} />}
       <div className="px-5">
         <div className="rounded-2xl border p-4" style={{ borderColor: `${C.conditioning}55`, backgroundColor: `${C.conditioning}0F` }}>
           <div className="flex items-center justify-between">
@@ -2183,7 +2185,7 @@ function WodXpScreen({ stats, classicWods, summary, wodMedals, onOpenWod }: {
           return (
             <motion.button
               key={wod.slot}
-              onClick={() => isUnlocked && wod.is_ready && onOpenWod(wod)}
+              onClick={() => { if (isUnlocked && wod.is_ready) { if (premiumLocked) onLockedTap(); else onOpenWod(wod); } }}
               disabled={!isUnlocked || !wod.is_ready}
               className="relative flex items-center gap-3 overflow-hidden rounded-2xl border p-4 text-left"
               style={{
@@ -2220,14 +2222,14 @@ function WodXpScreen({ stats, classicWods, summary, wodMedals, onOpenWod }: {
                     : `Reach Quest Lv ${wod.unlock_level} to unlock`}
                 </p>
               </div>
-              {isUnlocked && wod.is_ready && <ChevronRight size={18} style={{ color: C.muted }} />}
+              {isUnlocked && wod.is_ready && (premiumLocked ? <Lock size={16} style={{ color: C.boss }} /> : <ChevronRight size={18} style={{ color: C.muted }} />)}
 
               {/* Dim overlay for locked slots — retracts/fades on unlock
                   instead of just disappearing, per spec section 26. */}
               <motion.div
                 className="pointer-events-none absolute inset-0"
                 initial={false}
-                animate={{ opacity: isUnlocked ? 0 : 1 }}
+                animate={{ opacity: isUnlocked ? (premiumLocked && wod.is_ready ? 0.45 : 0) : 1 }}
                 transition={{ duration: 0.5 }}
                 style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}
               />
@@ -2243,9 +2245,10 @@ function formatScoreLabel(scoringType: 'time' | 'rounds' | 'points'): string {
   return scoringType === 'time' ? 'Time' : scoringType === 'rounds' ? 'Rounds' : 'Points';
 }
 
-function WodDetailScreen({ wod, exercises, userId, onBack, onComplete }: {
+function WodDetailScreen({ wod, exercises, userId, onBack, onComplete, onPremiumRequired }: {
   wod: ClassicWod; exercises: Exercise[]; userId: string; onBack: () => void;
   onComplete: (result: { medal: string | null; scoreValue: number }) => void;
+  onPremiumRequired: () => void;
 }) {
   const [phase, setPhase] = useState<'ready' | 'active' | 'submitting'>('ready');
   const [viewing, setViewing] = useState<Exercise | null>(null);
@@ -2284,9 +2287,10 @@ function WodDetailScreen({ wod, exercises, userId, onBack, onComplete }: {
     setRunning(false);
     setPhase('submitting');
     const supabase = createClient();
-    const { data: medal } = await supabase.rpc('attempt_classic_wod', {
+    const { data: medal, error: wodErr } = await supabase.rpc('attempt_classic_wod', {
       p_user_id: userId, p_slot: wod.slot, p_score_value: finalScore,
     });
+    if (wodErr && String(wodErr.message).includes('premium_required')) { onPremiumRequired(); return; }
     onComplete({ medal: medal ?? null, scoreValue: finalScore });
   };
 
@@ -4061,6 +4065,39 @@ function premiumLabel(p: PremiumStatus | null): string {
   return p.premium_until ? `Premium until ${new Date(p.premium_until).toLocaleDateString()}` : 'Premium';
 }
 
+/** Banner shown at the top of Premium screens when the user doesn't have Premium. */
+function PremiumLockBanner({ feature, onEnterCode }: { feature: string; onEnterCode: () => void }) {
+  return (
+    <div className="mx-5 mb-4 flex items-center gap-3 rounded-2xl border p-4" style={{ borderColor: `${C.boss}55`, backgroundColor: `${C.boss}0F` }}>
+      <Lock size={20} style={{ color: C.boss }} className="shrink-0" />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-bold" style={{ color: C.text, ...SG }}>{feature} is a Premium feature</p>
+        <p className="text-[11px]" style={{ color: C.muted }}>Your results stay visible. Got an access code? Enter it to unlock.</p>
+      </div>
+      <button onClick={onEnterCode} className="shrink-0 rounded-xl px-3 py-2 text-xs font-bold" style={{ backgroundColor: C.boss, color: '#0D0D0D', ...SG }}>Enter code</button>
+    </div>
+  );
+}
+
+/** Shown when a locked Premium card is tapped (or the server says Premium is required). */
+function PremiumLockModal({ feature, onEnterCode, onClose }: { feature: string; onEnterCode: () => void; onClose: () => void }) {
+  return (
+    <SafeModalShell onBackdropClick={onClose}>
+      <div className="w-full max-w-sm rounded-3xl border p-6 text-center" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+        <Lock size={28} style={{ color: C.boss }} className="mx-auto" />
+        <h2 className="mt-3 text-lg font-bold" style={SG}>{feature} is Premium</h2>
+        <p className="mt-1 text-sm" style={{ color: C.muted }}>
+          Unlock it with an access code. Your XP, levels, bosses, Friends and normal workouts stay free, and results you already saved stay visible.
+        </p>
+        <div className="mt-6 flex flex-col gap-2">
+          <button onClick={onEnterCode} className="rounded-2xl py-3.5 text-sm font-bold transition-transform active:scale-[0.96]" style={{ backgroundColor: C.xp, color: '#04140A', ...SG }}>Enter access code</button>
+          <button onClick={onClose} className="rounded-2xl border py-3.5 text-sm font-bold" style={{ borderColor: C.border, color: C.muted, ...SG }}>Not now</button>
+        </div>
+      </div>
+    </SafeModalShell>
+  );
+}
+
 function AccessCodeModal({ status, onClose, onRedeemed }: { status: PremiumStatus | null; onClose: () => void; onRedeemed: (p: PremiumStatus) => void }) {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -4145,7 +4182,7 @@ function AccessCodeModal({ status, onClose, onRedeemed }: { status: PremiumStatu
   );
 }
 
-function ProfileMenu({ userId, username, level, onLogout, onPrivacy, onTerms, onInstall, installed, allTimeStats }: { userId: string; username: string; level: number; onLogout: () => void; onPrivacy: () => void; onTerms: () => void; onInstall: () => void; installed: boolean; allTimeStats: AllTimeStats }) {
+function ProfileMenu({ onPremiumChange, userId, username, level, onLogout, onPrivacy, onTerms, onInstall, installed, allTimeStats }: { onPremiumChange?: (p: PremiumStatus) => void; userId: string; username: string; level: number; onLogout: () => void; onPrivacy: () => void; onTerms: () => void; onInstall: () => void; installed: boolean; allTimeStats: AllTimeStats }) {
   const [showDelete, setShowDelete] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [showCode, setShowCode] = useState(false);
@@ -4161,7 +4198,7 @@ function ProfileMenu({ userId, username, level, onLogout, onPrivacy, onTerms, on
     <div className="min-h-screen pb-24" style={{ backgroundColor: C.bg }}>
       {showDelete && <DeleteAccountModal onCancel={() => setShowDelete(false)} onDeleted={onLogout} />}
       {showFeedback && <FeedbackModal level={level} onClose={() => setShowFeedback(false)} />}
-      {showCode && <AccessCodeModal status={premium} onClose={() => setShowCode(false)} onRedeemed={setPremium} />}
+      {showCode && <AccessCodeModal status={premium} onClose={() => setShowCode(false)} onRedeemed={(p) => { setPremium(p); onPremiumChange?.(p); }} />}
       <header className="px-5 pt-6 pb-4">
         <p className="text-xs uppercase tracking-wider" style={{ color: C.muted }}>Account</p>
         <h1 className="text-2xl font-bold" style={SG}>{username}</h1>
@@ -4258,9 +4295,10 @@ function shortDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
-function TestsScreen({ tests, results, level, available, onOpen, newIds }: {
+function TestsScreen({ tests, results, level, available, onOpen, newIds, premiumLocked, onLockedTap, onEnterCode }: {
   tests: FitnessTest[]; results: FitnessTestResult[]; level: number; available: boolean;
   onOpen: (t: FitnessTest) => void; newIds: string[];
+  premiumLocked: boolean; onLockedTap: () => void; onEnterCode: () => void;
 }) {
   const [freshIds] = useState(() => new Set(newIds)); // snapshot at open, so "NEW" chips survive being marked as seen
   const unlocked = tests.filter((t) => t.unlock_level <= level);
@@ -4274,6 +4312,7 @@ function TestsScreen({ tests, results, level, available, onOpen, newIds }: {
         <p className="mt-1 text-xs" style={{ color: C.muted }}>Take a test anytime. No XP — just your numbers, saved so you can beat them.</p>
       </header>
 
+      {available && premiumLocked && <PremiumLockBanner feature="Fitness Tests" onEnterCode={onEnterCode} />}
       {!available ? (
         <div className="mx-5 rounded-2xl border p-4 text-center text-sm" style={{ borderColor: C.border, backgroundColor: C.surface, color: C.muted }}>
           Fitness Tests aren&apos;t available yet.
@@ -4285,7 +4324,7 @@ function TestsScreen({ tests, results, level, available, onOpen, newIds }: {
             const best = bestTestResult(t, rs);
             const last = rs[rs.length - 1];
             return (
-              <button key={t.id} onClick={() => onOpen(t)} className="flex items-center gap-3 rounded-2xl border p-4 text-left" style={{ borderColor: freshIds.has(t.id) ? C.xp : C.border, backgroundColor: C.surface }}>
+              <button key={t.id} onClick={() => (premiumLocked ? onLockedTap() : onOpen(t))} className="flex items-center gap-3 rounded-2xl border p-4 text-left" style={{ opacity: premiumLocked ? 0.55 : 1, borderColor: freshIds.has(t.id) ? C.xp : C.border, backgroundColor: C.surface }}>
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden" style={{ backgroundColor: `${C.xp}1A`, borderRadius: FITNESS_TEST_IMAGES[t.id] ? 0 : 12 }}>
                   {FITNESS_TEST_IMAGES[t.id]
                     ? <img src={FITNESS_TEST_IMAGES[t.id]} alt="" className="h-full w-full object-cover" />
@@ -4298,10 +4337,10 @@ function TestsScreen({ tests, results, level, available, onOpen, newIds }: {
                   </div>
                   <p className="truncate text-[11px]" style={{ color: C.muted }}>{t.challenge}</p>
                   <p className="mt-1 text-[11px]" style={{ color: best ? C.xp : C.muted, ...MO }}>
-                    {best ? `Best ${formatTestResult(t, Number(best.value), best.weight_kg)} · ${rs.length}× · last ${shortDate(last.created_at)}` : 'Not tested yet — tap to start'}
+                    {best ? `Best ${formatTestResult(t, Number(best.value), best.weight_kg)} · ${rs.length}× · last ${shortDate(last.created_at)}` : (premiumLocked ? 'Premium' : 'Not tested yet — tap to start')}
                   </p>
                 </div>
-                <ChevronRight size={18} style={{ color: C.muted }} />
+                {premiumLocked ? <Lock size={16} style={{ color: C.boss }} /> : <ChevronRight size={18} style={{ color: C.muted }} />}
               </button>
             );
           })}
@@ -4323,9 +4362,9 @@ function TestsScreen({ tests, results, level, available, onOpen, newIds }: {
   );
 }
 
-function FitnessTestScreen({ test, results, totalWorkouts, userId, onBack, onSaved }: {
+function FitnessTestScreen({ test, results, totalWorkouts, userId, onBack, onSaved, onPremiumRequired }: {
   test: FitnessTest; results: FitnessTestResult[]; totalWorkouts: number; userId: string;
-  onBack: () => void; onSaved: () => Promise<void>;
+  onBack: () => void; onSaved: () => Promise<void>; onPremiumRequired: () => void;
 }) {
   // hold = stopwatch, amrap = countdown then enter reps, reps = just enter reps
   const mode: 'hold' | 'amrap' | 'reps' = test.metric === 'time' ? 'hold' : test.duration_seconds ? 'amrap' : 'reps';
@@ -4369,7 +4408,10 @@ function FitnessTestScreen({ test, results, totalWorkouts, userId, onBack, onSav
     const w = test.uses_weight && weight !== '' && Number(weight) > 0 ? Number(weight) : null;
     const { error: err } = await supabase.from('fitness_test_results').insert({ user_id: userId, test_id: test.id, value, weight_kg: w, workouts_at_test: totalWorkouts });
     setSaving(false);
-    if (err) { setError('Could not save — check your connection and try again.'); return; }
+    if (err) {
+      if (err.code === '42501' || /row-level security/i.test(err.message ?? '')) { onPremiumRequired(); return; }
+      setError('Could not save — check your connection and try again.'); return;
+    }
     const prevBest = bestTestResult(test, results);
     setSavedInfo({ isBest: !prevBest || isBetterTestResult(test, { value, weight_kg: w }, prevBest), text: formatTestResult(test, value, w) });
     setPhase('saved');
@@ -5527,6 +5569,25 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
   const [challengeXpEarned, setChallengeXpEarned] = useState(0);
   const [bossResult, setBossResult] = useState<{ passed: boolean; medal: string | null; xpReward: number } | null>(null);
   const [stats, setStats] = useState(initialStats);
+  // Premium (access code) state. null = not loaded yet: treated as unlocked so nothing
+  // flickers; the server enforces Premium on save either way.
+  const [premium, setPremium] = useState<PremiumStatus | null>(null);
+  const premiumLocked = premium !== null && !premium.active;
+  const [showCodeModal, setShowCodeModal] = useState(false);
+  const [lockModalFeature, setLockModalFeature] = useState<string | null>(null);
+  React.useEffect(() => {
+    let cancelled = false;
+    createClient().rpc('get_my_premium').then(({ data, error }) => {
+      if (!cancelled && !error && data) setPremium(data as PremiumStatus);
+    });
+    return () => { cancelled = true; };
+  }, []);
+  // The server said Premium is required (expired or never had it): lock the UI and explain.
+  const handlePremiumRequired = () => {
+    setPremium({ active: false, lifetime: false, premium_until: null });
+    setScreen('tab');
+    setLockModalFeature(tab === 'wodxp' ? 'WOD XP' : 'Fitness Tests');
+  };
   const [allTimeStats, setAllTimeStats] = useState(initialAllTimeStats);
   const [exercises, setExercises] = useState(initialExercises);
   // Add-to-Home-Screen: hidden when already running as an installed app.
@@ -5639,7 +5700,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     return best;
   })();
   const retestVisible = retestCandidate !== null && (retestDismissedAt === null || allTimeStats.totalWorkouts - retestDismissedAt >= 5);
-  const testNotice: TestNotice | null = newTests.length > 0
+  const testNotice: TestNotice | null = premiumLocked ? null : newTests.length > 0
     ? { kind: 'new', title: newTests.length === 1 ? `🔓 New fitness test: ${newTests[0].name}` : `🔓 ${newTests.length} new fitness tests unlocked`, body: 'Test yourself anytime — no XP, just your numbers.' }
     : retestVisible && retestCandidate
       ? { kind: 'retest', title: `Time to retest: ${retestCandidate.test.name}`, body: `${retestCandidate.since} workouts since your last test — beat your best!` }
@@ -5846,7 +5907,8 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
       <GlobalStyle />
       <PageTransition screenKey={screen}>
         <WodDetailScreen wod={selectedWod} exercises={challengeLookup} userId={user.id} onBack={() => setScreen('tab')}
-          onComplete={async (result) => { setWodResult(result); await refreshWodSummary(); setScreen('wod-result'); }} />
+          onComplete={async (result) => { setWodResult(result); await refreshWodSummary(); setScreen('wod-result'); }}
+          onPremiumRequired={handlePremiumRequired} />
       </PageTransition>
     </>
   );
@@ -5898,7 +5960,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
         <GlobalStyle />
         <PageTransition screenKey={screen}>
           <FitnessTestScreen test={test} results={fitnessResults.filter((r) => r.test_id === test.id)} totalWorkouts={allTimeStats.totalWorkouts} userId={user.id}
-            onBack={() => setScreen('tab')} onSaved={refreshFitnessTests} />
+            onBack={() => setScreen('tab')} onSaved={refreshFitnessTests} onPremiumRequired={handlePremiumRequired} />
         </PageTransition>
       </>
     );
@@ -5923,7 +5985,8 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
       installCard={installAvailable && !installCardDismissed ? { onOpen: () => setShowInstallGuide(true), onDismiss: dismissInstallCard } : null}
     />
   );
-  else if (tab === 'wodxp') content = <WodXpScreen stats={stats} classicWods={classicWods} summary={wodSummary} wodMedals={wodMedalsState} onOpenWod={(wod) => { setSelectedWod(wod); setScreen('wod-detail'); }} />;
+  else if (tab === 'wodxp') content = <WodXpScreen stats={stats} classicWods={classicWods} summary={wodSummary} wodMedals={wodMedalsState} onOpenWod={(wod) => { setSelectedWod(wod); setScreen('wod-detail'); }}
+    premiumLocked={premiumLocked} onLockedTap={() => setLockModalFeature('WOD XP')} onEnterCode={() => setShowCodeModal(true)} />;
   else if (tab === 'friends') content = (
     <>
       <div className="px-5 pt-5">
@@ -5933,10 +5996,11 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     </>
   );
   else if (tab === 'tests') content = <TestsScreen tests={fitnessTests} results={fitnessResults} level={stats.level} available={testsAvailable} newIds={newTests.map((t) => t.id)}
-    onOpen={(t) => { setSelectedTestId(t.id); setScreen('test'); }} />;
+    onOpen={(t) => { setSelectedTestId(t.id); setScreen('test'); }}
+    premiumLocked={premiumLocked} onLockedTap={() => setLockModalFeature('Fitness Tests')} onEnterCode={() => setShowCodeModal(true)} />;
   else if (tab === 'exercises') content = <ExercisesScreen exercises={exercises} />;
   else if (tab === 'stats') content = <StatsScreen stats={stats} records={exerciseRecords} exercises={exercises} />;
-  else if (tab === 'profile') content = <ProfileMenu userId={user.id} username={user.username} level={stats.level} onLogout={handleLogout} onPrivacy={() => router.push('/privacy')} onTerms={() => router.push('/terms')} onInstall={() => setShowInstallGuide(true)} installed={installed} allTimeStats={allTimeStats} />;
+  else if (tab === 'profile') content = <ProfileMenu onPremiumChange={setPremium} userId={user.id} username={user.username} level={stats.level} onLogout={handleLogout} onPrivacy={() => router.push('/privacy')} onTerms={() => router.push('/terms')} onInstall={() => setShowInstallGuide(true)} installed={installed} allTimeStats={allTimeStats} />;
 
   return (
     <div style={{ backgroundColor: C.bg }}>
@@ -5952,7 +6016,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
               <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tab === t.key ? activeColor : 'transparent', boxShadow: tab === t.key ? `0 0 6px ${activeColor}` : 'none' }} />
               <span className="relative text-[10px] font-medium uppercase tracking-wide">
                 {t.label}
-                {t.key === 'tests' && newTests.length > 0 && tab !== 'tests' && (
+                {t.key === 'tests' && !premiumLocked && newTests.length > 0 && tab !== 'tests' && (
                   <span className="absolute -right-2 -top-1 h-2 w-2 rounded-full" style={{ backgroundColor: C.boss }} />
                 )}
               </span>
@@ -5960,6 +6024,10 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
           );
         })}
       </nav>
+      {lockModalFeature && !showCodeModal && (
+        <PremiumLockModal feature={lockModalFeature} onClose={() => setLockModalFeature(null)} onEnterCode={() => { setLockModalFeature(null); setShowCodeModal(true); }} />
+      )}
+      {showCodeModal && <AccessCodeModal status={premium} onClose={() => setShowCodeModal(false)} onRedeemed={(p) => setPremium(p)} />}
       {restBonus && <RestBonusModal xp={restBonus.xp} streak={restBonus.streak} onClose={() => setRestBonus(null)} />}
       {showInstallGuide && (
         <InstallGuideModal installEvent={installEvent} onClose={() => setShowInstallGuide(false)} onInstalled={() => { setInstalled(true); setInstallEvent(null); }} />
