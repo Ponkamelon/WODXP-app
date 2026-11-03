@@ -6,17 +6,22 @@
 --   Strength 80 %, Mobility 40 %, Endurance 80 % of the workout XP.
 -- Quest XP (xp_total) is NOT changed. Other goals keep 40/20/40.
 -- Applies from now on; existing attribute XP is not recalculated.
+-- ALSO closes a hole: award_xp could be called by anyone (even signed-out) for ANY user id.
+--   * award_xp_core = the XP logic (identical to production apart from the Mixed bonus:
+--     daily limit of 2, boss freeze, streak). NOT callable by clients.
+--   * award_xp (what the app calls) now requires that you are signed in as p_user_id and
+--     that p_xp is between 0 and 400 (the most a workout can give is 6 exercises x 49 XP).
+--   * friends_grant_bonus (server only) now calls award_xp_core.
 -- Run once in the Supabase SQL Editor ("Run without RLS"). Safe to re-run.
--- Everything else in award_xp is identical to the production version
--- (daily limit of 2, boss freeze, streak).
 -- ============================================================================
 
 drop function if exists public.award_xp(uuid, integer);
 
-create or replace function public.award_xp(p_user_id uuid, p_xp integer, p_mixed boolean default false)
+create or replace function public.award_xp_core(p_user_id uuid, p_xp integer, p_mixed boolean default false)
 returns integer
 language plpgsql
 security definer
+set search_path = public
 as $function$
 declare
   v_stats user_stats%rowtype;
@@ -88,7 +93,32 @@ begin
 end;
 $function$;
 
--- Same callers as before (signed-in users and server functions); anon and PUBLIC
--- no longer get EXECUTE (they had it by default on the old function).
+revoke all on function public.award_xp_core(uuid, integer, boolean) from public, anon, authenticated;
+grant execute on function public.award_xp_core(uuid, integer, boolean) to service_role;
+
+-- What the app calls. Only for yourself, and with a sane XP amount.
+create or replace function public.award_xp(p_user_id uuid, p_xp integer, p_mixed boolean default false)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $function$
+begin
+  if auth.uid() is null or auth.uid() <> p_user_id then
+    raise exception 'not_authorized';
+  end if;
+  if p_xp is null or p_xp < 0 or p_xp > 400 then
+    raise exception 'invalid_xp';
+  end if;
+  return public.award_xp_core(p_user_id, p_xp, coalesce(p_mixed, false));
+end;
+$function$;
+
 revoke all on function public.award_xp(uuid, integer, boolean) from public, anon;
 grant execute on function public.award_xp(uuid, integer, boolean) to authenticated, service_role;
+
+-- Friends bonuses are booked for the RECEIVER by the server, so they use the core.
+create or replace function public.friends_grant_bonus(p_uid uuid, p_xp integer) returns integer
+language sql security definer set search_path = public as $$
+  select public.award_xp_core(p_uid, p_xp, false);
+$$;
