@@ -7,7 +7,7 @@ import { motion, useMotionValue, animate } from 'motion/react';
 import {
   Flame, ChevronRight, Search, Lock, Trophy, Swords, Plus, Crown,
   TrendingUp, Award, Sparkles, Target, Clock, Gauge,
-  Minus, Check, ArrowLeft, Users, Timer, RefreshCw, Star,
+  Minus, Check, ArrowLeft, Users, Timer, RefreshCw, Star, Ban,
 } from 'lucide-react';
 import {
   CATEGORY_ICONS, CATEGORY_LABELS, EQUIPMENT_LABELS, EQUIPMENT_COLORS,
@@ -2814,7 +2814,7 @@ function HoldTimer({ accent, reps, kind = 'hold' }: { accent: string; reps: numb
   );
 }
 
-function WorkoutScreen({ exercises: initialExercises, pool, userId, durationMinutes, records, onBack, onFinish }: { exercises: Exercise[]; pool: Exercise[]; userId: string; durationMinutes: number; records: Record<string, ExerciseRecord>; onBack: () => void; onFinish: (requestedXp: number, grantedXp: number, doneLogs: { exerciseId: string; weight: number; reps: number }[], challenges: ChallengeClear[]) => void }) {
+function WorkoutScreen({ exercises: initialExercises, pool: fullPool, userId, durationMinutes, records, blockedIds, onToggleBlock, onBack, onFinish }: { exercises: Exercise[]; pool: Exercise[]; userId: string; durationMinutes: number; records: Record<string, ExerciseRecord>; blockedIds: Set<string>; onToggleBlock: (ex: Exercise) => void; onBack: () => void; onFinish: (requestedXp: number, grantedXp: number, doneLogs: { exerciseId: string; weight: number; reps: number }[], challenges: ChallengeClear[]) => void }) {
   // Captured once, when the workout screen first mounts — i.e. when the
   // user actually starts training. Without this, the session row would
   // only get a started_at/completed_at pair at save time (both ~identical),
@@ -2838,6 +2838,8 @@ function WorkoutScreen({ exercises: initialExercises, pool, userId, durationMinu
   // in the session, and preferring categories the rest of the session lacks
   // (so five similar squats can be turned into something different).
   // Exercises seen earlier this session are avoided until the pool runs dry.
+  // Exercises the user blocked (also mid-session) are never swapped in.
+  const pool = fullPool.filter((p) => !blockedIds.has(p.id));
   const canSwap = pool.some((p) => !exercises.some((e) => e.id === p.id));
   const swapExercise = (index: number) => {
     const current = exercises[index];
@@ -3018,7 +3020,19 @@ function WorkoutScreen({ exercises: initialExercises, pool, userId, durationMinu
           )}
         </LedBorderButton>
       </div>
-      {viewing && <ExerciseDetailModal exercise={viewing} onClose={() => setViewing(null)} />}
+      {viewing && (
+        <ExerciseDetailModal exercise={viewing} onClose={() => setViewing(null)} blocked={blockedIds.has(viewing.id)}
+          onToggleBlock={() => {
+            const wasBlocked = blockedIds.has(viewing.id);
+            onToggleBlock(viewing);
+            // Blocking an exercise you haven't started swaps it out right away.
+            const idx = exercises.findIndex((e) => e.id === viewing.id);
+            if (!wasBlocked && idx >= 0 && (setsDone[viewing.id] ?? 0) === 0 && !done.has(viewing.id)) {
+              setViewing(null);
+              swapExercise(idx);
+            }
+          }} />
+      )}
       {leaveConfirm && (
         <QuitConfirmModal
           title="End this workout?"
@@ -3326,7 +3340,7 @@ function splitIntoSteps(text?: string): string[] {
     .filter(Boolean);
 }
 
-function ExerciseDetailModal({ exercise, onClose }: { exercise: Exercise; onClose: () => void }) {
+function ExerciseDetailModal({ exercise, onClose, blocked, onToggleBlock }: { exercise: Exercise; onClose: () => void; blocked?: boolean; onToggleBlock?: () => void }) {
   const equipment = pickPrimaryEquipment(exercise.equipment);
   const steps = splitIntoSteps(exercise.instructions);
 
@@ -3390,13 +3404,25 @@ function ExerciseDetailModal({ exercise, onClose }: { exercise: Exercise; onClos
               </ol>
             </div>
           )}
+          {onToggleBlock && (
+            <div className="mt-8 border-t pt-5" style={{ borderColor: C.border }}>
+              <button onClick={onToggleBlock} className="flex w-full items-center justify-center gap-2 rounded-2xl border py-3.5 text-sm font-bold"
+                style={{ borderColor: blocked ? C.xp : C.border, color: blocked ? C.xp : C.muted, ...SG }}>
+                <Ban size={16} /> {blocked ? 'Unblock this exercise' : "Don't show this exercise again"}
+              </button>
+              <p className="mt-2 text-center text-[11px]" style={{ color: C.muted }}>
+                {blocked ? 'It can appear in your workouts again.' : "It won't be picked for your workouts. You can unblock it here anytime."}
+              </p>
+            </div>
+          )}
           </div>
         </div>
       </div>
   );
 }
 
-function ExercisesScreen({ exercises }: { exercises: Exercise[] }) {
+function ExercisesScreen({ exercises, blockedIds, onToggleBlock }: { exercises: Exercise[]; blockedIds: Set<string>; onToggleBlock: (ex: Exercise) => void }) {
+  const [showBlocked, setShowBlocked] = useState(false);
   const [search, setSearch] = useState('');
   const [cat, setCat] = useState('all');
   const [equipFilter, setEquipFilter] = useState<'all' | Equipment>('all');
@@ -3406,8 +3432,10 @@ function ExercisesScreen({ exercises }: { exercises: Exercise[] }) {
     const matchesCat = cat === 'all' || e.category === cat;
     const matchesEquip = equipFilter === 'all' || e.equipment.includes(equipFilter);
     const matchesSearch = e.name.toLowerCase().includes(search.toLowerCase());
-    return matchesCat && matchesEquip && matchesSearch;
+    const matchesBlocked = !showBlocked || blockedIds.has(e.id);
+    return matchesCat && matchesEquip && matchesSearch && matchesBlocked;
   });
+  const blockedCount = exercises.filter((e) => blockedIds.has(e.id)).length;
 
   return (
     <div className="min-h-screen pb-24" style={{ backgroundColor: C.bg }}>
@@ -3433,6 +3461,14 @@ function ExercisesScreen({ exercises }: { exercises: Exercise[] }) {
             className="w-full bg-transparent text-sm outline-none" style={{ color: C.text }} />
         </div>
       </div>
+      {(blockedCount > 0 || showBlocked) && (
+        <div className="mt-3 px-5">
+          <button onClick={() => setShowBlocked((v) => !v)} className="flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold"
+            style={{ borderColor: showBlocked ? C.xp : C.border, backgroundColor: showBlocked ? `${C.xp}1A` : 'transparent', color: showBlocked ? C.xp : C.muted, ...SG }}>
+            <Ban size={13} /> Blocked ({blockedCount})
+          </button>
+        </div>
+      )}
       <div className="mt-3 flex gap-2 overflow-x-auto px-5 pb-1" style={{ scrollbarWidth: 'none' }}>
         {cats.map((c) => (
           <button key={c} onClick={() => setCat(c)} className="shrink-0 rounded-full border px-4 py-2 text-xs font-semibold capitalize"
@@ -3443,15 +3479,18 @@ function ExercisesScreen({ exercises }: { exercises: Exercise[] }) {
       </div>
       <div className="mt-3 flex flex-col gap-2 px-5">
         {filtered.length === 0 ? (
-          <p className="py-8 text-center text-sm" style={{ color: C.muted }}>No exercises found.</p>
+          <p className="py-8 text-center text-sm" style={{ color: C.muted }}>{showBlocked ? 'No blocked exercises.' : 'No exercises found.'}</p>
         ) : (
           filtered.map((ex) => {
             return (
               <button key={ex.id} onClick={() => setSelected(ex)}
                 className="flex items-center gap-3 rounded-2xl border p-3 text-left transition-colors active:bg-white/5"
-                style={{ borderColor: C.border, backgroundColor: C.surface }}>
+                style={{ borderColor: C.border, backgroundColor: C.surface, opacity: blockedIds.has(ex.id) ? 0.55 : 1 }}>
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold truncate" style={{ color: C.text, ...SG }}>{ex.name}</p>
+                  <p className="flex items-center gap-1.5 font-bold" style={{ color: C.text, ...SG }}>
+                    <span className="truncate">{ex.name}</span>
+                    {blockedIds.has(ex.id) && <Ban size={13} style={{ color: C.muted }} className="shrink-0" />}
+                  </p>
                   <div className="mt-1 flex items-center gap-2">
                     <span className="text-[10px] font-medium uppercase tracking-wider rounded-full px-2 py-0.5" style={{ color: C.muted, border: `1px solid ${C.border}` }}>
                       {CATEGORY_LABELS[ex.category]}
@@ -3473,7 +3512,7 @@ function ExercisesScreen({ exercises }: { exercises: Exercise[] }) {
           })
         )}
       </div>
-      {selected && <ExerciseDetailModal exercise={selected} onClose={() => setSelected(null)} />}
+      {selected && <ExerciseDetailModal exercise={selected} onClose={() => setSelected(null)} blocked={blockedIds.has(selected.id)} onToggleBlock={() => onToggleBlock(selected)} />}
     </div>
   );
 }
@@ -5588,6 +5627,26 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     setScreen('tab');
     setLockModalFeature(tab === 'wodxp' ? 'WOD XP' : 'Fitness Tests');
   };
+  // Exercises the user chose not to see again ("blocked"). Optimistic: the UI changes at once,
+  // and is rolled back if saving fails.
+  const [blockedIds, setBlockedIds] = useState<Set<string>>(new Set());
+  React.useEffect(() => {
+    let cancelled = false;
+    createClient().from('user_blocked_exercises').select('exercise_id').limit(1000).then(({ data, error }) => {
+      if (!cancelled && !error && data) setBlockedIds(new Set(data.map((r: { exercise_id: string }) => r.exercise_id)));
+    });
+    return () => { cancelled = true; };
+  }, []);
+  const toggleBlock = async (ex: Exercise) => {
+    const wasBlocked = blockedIds.has(ex.id);
+    const apply = (blocked: boolean) => setBlockedIds((prev) => { const n = new Set(prev); if (blocked) n.add(ex.id); else n.delete(ex.id); return n; });
+    apply(!wasBlocked);
+    const supabase = createClient();
+    const { error } = wasBlocked
+      ? await supabase.from('user_blocked_exercises').delete().eq('user_id', user.id).eq('exercise_id', ex.id)
+      : await supabase.from('user_blocked_exercises').insert({ user_id: user.id, exercise_id: ex.id });
+    if (error && !(error.code === '23505')) apply(wasBlocked); // 23505 = already blocked, fine
+  };
   const [allTimeStats, setAllTimeStats] = useState(initialAllTimeStats);
   const [exercises, setExercises] = useState(initialExercises);
   // Add-to-Home-Screen: hidden when already running as an installed app.
@@ -5924,7 +5983,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     <>
       <GlobalStyle />
       <PageTransition screenKey={screen}>
-        <GeneratorScreen exercises={exercises} totalExerciseCount={totalExerciseCount} records={exerciseRecords} onBack={() => setScreen('tab')}
+        <GeneratorScreen exercises={exercises.filter((e) => !blockedIds.has(e.id))} totalExerciseCount={totalExerciseCount} records={exerciseRecords} onBack={() => setScreen('tab')}
           onStart={(exs, durationMinutes, pool) => {
             setSessionExercises(exs);
             setSessionPool(pool);
@@ -5948,6 +6007,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
       <GlobalStyle />
       <PageTransition screenKey={screen}>
         <WorkoutScreen exercises={sessionExercises} pool={sessionPool} userId={user.id} durationMinutes={sessionDurationMinutes} records={exerciseRecords}
+          blockedIds={blockedIds} onToggleBlock={toggleBlock}
           onBack={() => setScreen('tab')} onFinish={handleFinish} />
       </PageTransition>
     </>
@@ -5998,7 +6058,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
   else if (tab === 'tests') content = <TestsScreen tests={fitnessTests} results={fitnessResults} level={stats.level} available={testsAvailable} newIds={newTests.map((t) => t.id)}
     onOpen={(t) => { setSelectedTestId(t.id); setScreen('test'); }}
     premiumLocked={premiumLocked} onLockedTap={() => setLockModalFeature('Fitness Tests')} onEnterCode={() => setShowCodeModal(true)} />;
-  else if (tab === 'exercises') content = <ExercisesScreen exercises={exercises} />;
+  else if (tab === 'exercises') content = <ExercisesScreen exercises={exercises} blockedIds={blockedIds} onToggleBlock={toggleBlock} />;
   else if (tab === 'stats') content = <StatsScreen stats={stats} records={exerciseRecords} exercises={exercises} />;
   else if (tab === 'profile') content = <ProfileMenu onPremiumChange={setPremium} userId={user.id} username={user.username} level={stats.level} onLogout={handleLogout} onPrivacy={() => router.push('/privacy')} onTerms={() => router.push('/terms')} onInstall={() => setShowInstallGuide(true)} installed={installed} allTimeStats={allTimeStats} />;
 
