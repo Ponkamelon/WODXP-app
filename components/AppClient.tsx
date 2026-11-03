@@ -2457,7 +2457,7 @@ function WodResultScreen({ result, wod, onHome }: {
   );
 }
 
-function GeneratorScreen({ exercises, totalExerciseCount, records, onBack, onStart }: { exercises: Exercise[]; totalExerciseCount: number; records: Record<string, ExerciseRecord>; onBack: () => void; onStart: (exs: Exercise[], durationMinutes: number, pool: Exercise[]) => void }) {
+function GeneratorScreen({ exercises, totalExerciseCount, records, onBack, onStart }: { exercises: Exercise[]; totalExerciseCount: number; records: Record<string, ExerciseRecord>; onBack: () => void; onStart: (exs: Exercise[], durationMinutes: number, pool: Exercise[], mixed: boolean) => void }) {
   const [equipment, setEquipment] = useState<Set<'kettlebell' | 'dumbbell' | 'bodyweight'>>(
     new Set(['kettlebell', 'dumbbell', 'bodyweight'])
   );
@@ -2488,7 +2488,7 @@ function GeneratorScreen({ exercises, totalExerciseCount, records, onBack, onSta
     const pool = goal === 'mixed' ? equipmentPool : equipmentPool.filter((ex) => ex.primary_attribute === goal);
     const count = duration <= 10 ? 3 : duration <= 20 ? 4 : duration <= 30 ? 5 : 6;
     const picked = pickVariedExercises(pool.length > 0 ? pool : equipmentPool, count, records);
-    setTimeout(() => onStart(picked, duration, pool.length > 0 ? pool : equipmentPool), 750);
+    setTimeout(() => onStart(picked, duration, pool.length > 0 ? pool : equipmentPool, goal === 'mixed'), 750);
   };
 
   const Opt = <T extends string | number>({ label, val, cur, set }: { label: string; val: T; cur: T; set: (v: T) => void }) => (
@@ -2814,7 +2814,7 @@ function HoldTimer({ accent, reps, kind = 'hold' }: { accent: string; reps: numb
   );
 }
 
-function WorkoutScreen({ exercises: initialExercises, pool: fullPool, userId, durationMinutes, records, blockedIds, onToggleBlock, onBack, onFinish }: { exercises: Exercise[]; pool: Exercise[]; userId: string; durationMinutes: number; records: Record<string, ExerciseRecord>; blockedIds: Set<string>; onToggleBlock: (ex: Exercise) => void; onBack: () => void; onFinish: (requestedXp: number, grantedXp: number, doneLogs: { exerciseId: string; weight: number; reps: number }[], challenges: ChallengeClear[]) => void }) {
+function WorkoutScreen({ exercises: initialExercises, pool: fullPool, userId, durationMinutes, mixed, records, blockedIds, onToggleBlock, onBack, onFinish }: { exercises: Exercise[]; pool: Exercise[]; userId: string; durationMinutes: number; mixed: boolean; records: Record<string, ExerciseRecord>; blockedIds: Set<string>; onToggleBlock: (ex: Exercise) => void; onBack: () => void; onFinish: (requestedXp: number, grantedXp: number, doneLogs: { exerciseId: string; weight: number; reps: number }[], challenges: ChallengeClear[]) => void }) {
   // Captured once, when the workout screen first mounts — i.e. when the
   // user actually starts training. Without this, the session row would
   // only get a started_at/completed_at pair at save time (both ~identical),
@@ -2908,7 +2908,7 @@ function WorkoutScreen({ exercises: initialExercises, pool: fullPool, userId, du
         return sum + computeExerciseXp(ex, logs[ex.id]);
       }, 0);
 
-      const { data: grantedXp } = await supabase.rpc('award_xp', { p_user_id: userId, p_xp: totalXP });
+      const { data: grantedXp } = await supabase.rpc('award_xp', { p_user_id: userId, p_xp: totalXP, p_mixed: mixed });
 
       // Friends challenges: the server decides whether this saved workout clears one.
       // Best effort - a failure here must never block the workout from being saved.
@@ -5598,6 +5598,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
   const [sessionExercises, setSessionExercises] = useState<Exercise[]>([]);
   const [sessionPool, setSessionPool] = useState<Exercise[]>([]); // candidates for swapping a workout exercise
   const [sessionDurationMinutes, setSessionDurationMinutes] = useState(20);
+  const [sessionMixed, setSessionMixed] = useState(false);
   const [lastXP, setLastXP] = useState(0);
   const [sessionLevelUps, setSessionLevelUps] = useState<{ attribute: string; level: number }[]>([]);
   const [sessionStreakMessage, setSessionStreakMessage] = useState<string | null>(null);
@@ -5984,8 +5985,9 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
       <GlobalStyle />
       <PageTransition screenKey={screen}>
         <GeneratorScreen exercises={exercises.filter((e) => !blockedIds.has(e.id))} totalExerciseCount={totalExerciseCount} records={exerciseRecords} onBack={() => setScreen('tab')}
-          onStart={(exs, durationMinutes, pool) => {
+          onStart={(exs, durationMinutes, pool, mixed) => {
             setSessionExercises(exs);
+            setSessionMixed(mixed);
             setSessionPool(pool);
             setSessionDurationMinutes(durationMinutes);
             const skip = typeof window !== 'undefined' && window.localStorage.getItem('wodxp_skip_safety_notice') === '1';
@@ -6006,7 +6008,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     <>
       <GlobalStyle />
       <PageTransition screenKey={screen}>
-        <WorkoutScreen exercises={sessionExercises} pool={sessionPool} userId={user.id} durationMinutes={sessionDurationMinutes} records={exerciseRecords}
+        <WorkoutScreen exercises={sessionExercises} pool={sessionPool} userId={user.id} durationMinutes={sessionDurationMinutes} mixed={sessionMixed} records={exerciseRecords}
           blockedIds={blockedIds} onToggleBlock={toggleBlock}
           onBack={() => setScreen('tab')} onFinish={handleFinish} />
       </PageTransition>
