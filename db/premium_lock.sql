@@ -61,7 +61,14 @@ drop policy if exists fitness_test_results_delete_own on public.fitness_test_res
 create policy fitness_test_results_select_own on public.fitness_test_results
   for select using (auth.uid() = user_id);
 create policy fitness_test_results_insert_premium on public.fitness_test_results
-  for insert with check (auth.uid() = user_id and public.is_premium(auth.uid()));
+  for insert with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.user_premium p
+      where p.user_id = auth.uid()
+        and (p.lifetime or p.premium_until > now())
+    )
+  );
 create policy fitness_test_results_update_own on public.fitness_test_results
   for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy fitness_test_results_delete_own on public.fitness_test_results
