@@ -13,7 +13,7 @@ insert into public.boss_battles
    required_level_strength, required_level_mobility, required_level_conditioning)
 values
   (2, 'Gym Goblin', 'Complete both exercises in 4 min. Rest only when needed.', 1,
-   '[{"reps":20,"exercise_name":"Bodyweight Squat"},{"reps":30,"exercise_name":"Jumping Jacks"}]'::jsonb,
+   '[{"reps":20,"exercise_name":"Bodyweight Squat"},{"reps":20,"exercise_name":"Push-Up"}]'::jsonb,
    null, 240, null, null, 80, 1, 1, 1)
 on conflict (level) do update set
   name = excluded.name, description = excluded.description, rounds = excluded.rounds,
