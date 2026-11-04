@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { capturePendingCode } from '@/lib/pendingCode';
 
 const C = {
   bg: '#0D0D0D', surface: '#1A1A1A', border: '#444444',
@@ -15,6 +16,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => { capturePendingCode(window.location.search); }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
