@@ -3392,19 +3392,19 @@ function drawRecapPage(ctx: CanvasRenderingContext2D, page: RecapPage, s: Monthl
   // Header: logo + "My October"
   if (logo) {
     ctx.save();
-    recapRoundRect(ctx, X, 110, 130, 130, 30);
+    recapRoundRect(ctx, X, 100, 200, 200, 44);
     ctx.clip();
-    ctx.drawImage(logo, X, 110, 130, 130);
+    ctx.drawImage(logo, X, 100, 200, 200);
     ctx.restore();
   }
-  const hx = logo ? X + 160 : X;
+  const hx = logo ? X + 230 : X;
   ctx.fillStyle = C.text;
   ctx.font = RF(700, 80, 'oswald');
-  ctx.fillText(recapFit(ctx, `My ${recapMonthName(s.month)}`, RECAP_W - hx - X), hx, 190);
+  ctx.fillText(recapFit(ctx, `My ${recapMonthName(s.month)}`, RECAP_W - hx - X), hx, 210);
   ctx.fillStyle = C.muted;
   ctx.font = RF(400, 36, 'inter');
   const sub = opts.showName && username ? `${recapSubtitle(s)}, ${username}` : recapSubtitle(s);
-  ctx.fillText(recapFit(ctx, sub, RECAP_W - hx - X), hx, 238);
+  ctx.fillText(recapFit(ctx, sub, RECAP_W - hx - X), hx, 262);
 
 
   // Content
@@ -3754,7 +3754,7 @@ function MonthlyRecapModal({ summary, username, premiumLocked, onClose }: {
 
         {/* Fixed top: logo and month */}
         <div className="flex items-center gap-3 px-5 pb-2 pt-5">
-          <img src="/icon-512.png" alt="WODXP" className="h-11 w-11 rounded-xl" />
+          <img src="/icon-512.png" alt="WODXP" className="h-16 w-16 rounded-2xl" />
           <div className="min-w-0">
             <h2 className="text-xl font-bold leading-tight" style={SG}>My {month}</h2>
             <p className="truncate text-xs" style={{ color: C.muted }}>{recapSubtitle(summary)}{username ? `, ${username}` : ''}</p>
