@@ -8,6 +8,7 @@ import {
   Flame, ChevronRight, Search, Lock, Trophy, Swords, Plus, Crown,
   TrendingUp, Award, Sparkles, Target, Clock, Gauge,
   Minus, Check, ArrowLeft, Users, Timer, RefreshCw, Star, Ban,
+  X, ChevronLeft, Share2, Download,
 } from 'lucide-react';
 import {
   CATEGORY_ICONS, CATEGORY_LABELS, EQUIPMENT_LABELS, EQUIPMENT_COLORS,
@@ -3130,6 +3131,731 @@ function RestBonusModal({ xp, streak, onClose }: { xp: number; streak: number; o
   );
 }
 
+// ─── Monthly recap (backlog 13) ───────────────────────────────────────────────
+// Shown once per month at app start, for the previous month, via
+// get_monthly_summary (month counted in the user's own time zone). Closing it
+// calls mark_monthly_summary_seen, which also stores the current level so next
+// month's recap can show "level from → to".
+interface MonthlySummary {
+  month: string; timezone: string;
+  workouts: number; workouts_prev_month: number; training_days: number; minutes: number;
+  longest_streak: number; favourite_weekday: number | null; volume_kg: number;
+  top_exercises: { name: string; equipment: string | null; sessions: number; volume_kg: number }[];
+  new_exercises: number;
+  personal_bests: { name: string; equipment: string | null; kind: 'weight' | 'reps'; value: number; previous: number }[];
+  attributes: Record<string, { month: number; avg: number | null }>;
+  fitness_tests: { test_id: string; name: string; metric: 'reps' | 'time'; best: number; previous_best: number | null; is_record: boolean }[];
+  wods: { slot: number; name: string; scoring_type: 'time' | 'rounds' | 'points'; attempts: number; medal: 'gold' | 'silver' | 'bronze' | null; best_seconds: number | null; best_score: number | null }[];
+  bosses_defeated: string[]; challenges_cleared: string[];
+  level_now: number | null; level_from: number | null;
+  already_seen: boolean; is_complete: boolean; has_data: boolean;
+}
+
+type RecapTile = { label: string; value: string; delta?: string; note?: string; color?: string; tint?: string };
+type RecapBlock =
+  | { kind: 'tiles'; tiles: RecapTile[] }
+  | { kind: 'list'; title: string; rows: { rank: number; color: string; name: string; right: string }[] }
+  | { kind: 'bars'; title: string; items: { label: string; color: string; month: number; avg: number | null }[] }
+  | { kind: 'lines'; items: { icon: string; text: string; color: string }[] }
+  | { kind: 'goal'; label: string; text: string };
+interface RecapPage { key: string; title: string; blocks: RecapBlock[] }
+
+const RECAP_MEDAL_COLORS: Record<string, string> = { gold: '#FFD700', silver: '#C0C0C0', bronze: '#CD7F32' };
+const RECAP_WEEKDAYS = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const RECAP_ATTRS: { key: string; label: string; color: string }[] = [
+  { key: 'strength', label: 'Strength', color: C.strength },
+  { key: 'mobility', label: 'Mobility', color: C.mobility },
+  { key: 'conditioning', label: 'Conditioning', color: C.conditioning },
+];
+
+function recapMonthName(month: string, offset = 0): string {
+  const [y, m] = month.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1 + offset, 1)).toLocaleString('en-US', { month: 'long', timeZone: 'UTC' });
+}
+function recapNum(n: number): string {
+  return Math.round(n).toLocaleString('en-US').replace(/,/g, ' ');
+}
+function recapEquipColor(eq: string | null): string {
+  return eq && eq in EQUIPMENT_COLORS ? EQUIPMENT_COLORS[eq as Equipment] : C.muted;
+}
+function recapEquipShort(eq: string | null): string {
+  return eq === 'kettlebell' ? 'KB' : eq === 'dumbbell' ? 'DB' : eq === 'bodyweight' ? 'BW' : '';
+}
+function recapDuration(min: number): string {
+  const h = Math.floor(min / 60);
+  const m = Math.round(min % 60);
+  return h > 0 ? (m > 0 ? `${h} h ${m} min` : `${h} h`) : `${m} min`;
+}
+/** Playful weight comparison, e.g. 12 400 kg → "≈ two elephants". */
+function recapVolumeComparison(kg: number): string | null {
+  const refs = [
+    { kg: 150000, one: 'blue whale', many: 'blue whales' },
+    { kg: 6000, one: 'elephant', many: 'elephants' },
+    { kg: 1500, one: 'car', many: 'cars' },
+    { kg: 400, one: 'grand piano', many: 'grand pianos' },
+    { kg: 16, one: 'kettlebell (16 kg)', many: 'kettlebells (16 kg)' },
+  ];
+  const ref = refs.find((r) => kg >= r.kg);
+  if (!ref) return null;
+  const n = kg / ref.kg;
+  const rounded = n < 10 ? Math.round(n * 2) / 2 : Math.round(n);
+  const words = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+  const count = Number.isInteger(rounded) && rounded <= 10 ? words[rounded] : String(rounded);
+  return `≈ ${count} ${rounded === 1 ? ref.one : ref.many}`;
+}
+function recapSubtitle(s: MonthlySummary): string {
+  if (s.workouts >= 12) return 'Strong month';
+  if (s.workouts >= 6) return 'Solid month';
+  if (s.workouts >= 3) return 'Good momentum';
+  if (s.workouts >= 1) return 'Every session counts';
+  return 'You showed up';
+}
+
+/** Builds the carousel pages. Pages and tiles without data are left out, so
+ *  the recap never looks half empty. Premium content (tests, WODXP) only for
+ *  users who have Premium. */
+function buildRecapPages(s: MonthlySummary, premiumLocked: boolean): RecapPage[] {
+  const pages: RecapPage[] = [];
+  const num = (v: unknown) => Number(v ?? 0) || 0;
+
+  // 1. Overview
+  const workouts = num(s.workouts);
+  if (workouts > 0) {
+    const tiles: RecapTile[] = [];
+    const diff = workouts - num(s.workouts_prev_month);
+    tiles.push({ label: 'Workouts', value: String(workouts), delta: diff > 0 ? `+${diff}` : undefined });
+    if (num(s.minutes) > 0) tiles.push({ label: 'Time trained', value: recapDuration(num(s.minutes)) });
+    if (num(s.longest_streak) > 0) tiles.push({ label: 'Longest streak', value: `${num(s.longest_streak)} ${num(s.longest_streak) === 1 ? 'day' : 'days'}`, color: C.boss });
+    if (s.level_now != null) {
+      const from = s.level_from;
+      tiles.push({ label: 'Level', value: from != null && from !== s.level_now ? `${from} → ${s.level_now}` : String(s.level_now), color: C.xp });
+    }
+    const blocks: RecapBlock[] = [{ kind: 'tiles', tiles }];
+    const top = (s.top_exercises ?? []).slice(0, 3);
+    if (top.length > 0) {
+      blocks.push({
+        kind: 'list', title: 'Top exercises',
+        rows: top.map((t, i) => ({ rank: i + 1, color: recapEquipColor(t.equipment), name: t.name, right: `${num(t.sessions)}×` })),
+      });
+    }
+    pages.push({ key: 'overview', title: 'Overview', blocks });
+  }
+
+  // 2. Attributes and volume
+  {
+    const attrs = s.attributes ?? {};
+    const items = RECAP_ATTRS.map((a) => ({
+      label: a.label, color: a.color,
+      month: num(attrs[a.key]?.month),
+      avg: attrs[a.key]?.avg != null ? num(attrs[a.key]?.avg) : null,
+    }));
+    const blocks: RecapBlock[] = [];
+    if (items.some((i) => i.month > 0)) blocks.push({ kind: 'bars', title: 'Your attributes vs your average', items });
+    const tiles: RecapTile[] = [];
+    if (num(s.volume_kg) > 0) tiles.push({ label: 'Weight moved', value: `${recapNum(num(s.volume_kg))} kg`, note: recapVolumeComparison(num(s.volume_kg)) ?? undefined });
+    if (num(s.training_days) > 0) tiles.push({ label: 'Training days', value: String(num(s.training_days)) });
+    if (tiles.length > 0) blocks.push({ kind: 'tiles', tiles });
+    if (blocks.length > 0) pages.push({ key: 'attributes', title: 'Attributes and volume', blocks });
+  }
+
+  // 3. Tests and challenges
+  {
+    const tiles: RecapTile[] = [];
+    if (!premiumLocked) {
+      const tests = [...(s.fitness_tests ?? [])].sort((a, b) => Number(b.is_record) - Number(a.is_record));
+      for (const t of tests) {
+        const fmt = (v: number) => (t.metric === 'time' ? formatClock(v) : `${v} reps`);
+        const prev = t.previous_best;
+        const gain = prev != null ? num(t.best) - num(prev) : 0;
+        const gainText = gain > 0 ? (t.metric === 'time' ? ` +${Math.round(gain)} s` : ` +${gain} reps`) : '';
+        tiles.push({
+          label: t.name, value: fmt(num(t.best)),
+          note: prev == null ? 'First result' : t.is_record ? `New record,${gainText}` : 'Tested',
+          color: C.mobility, tint: `${C.mobility}1F`,
+        });
+      }
+      for (const w of s.wods ?? []) {
+        const score = w.scoring_type === 'time' && w.best_seconds != null ? formatTimer(num(w.best_seconds))
+          : w.best_score != null ? `${num(w.best_score)} ${formatScoreLabel(w.scoring_type).toLowerCase()}` : 'Completed';
+        tiles.push({
+          label: 'WODXP', value: w.name,
+          note: w.medal ? `${w.medal[0].toUpperCase()}${w.medal.slice(1)} medal` : score,
+          color: w.medal ? RECAP_MEDAL_COLORS[w.medal] : C.conditioning, tint: `${C.conditioning}1F`,
+        });
+      }
+    }
+    const lines: { icon: string; text: string; color: string }[] = [];
+    for (const b of s.bosses_defeated ?? []) lines.push({ icon: '⚔️', text: `Boss defeated: ${b}`, color: C.boss });
+    for (const c of s.challenges_cleared ?? []) lines.push({ icon: '🎯', text: `Challenge cleared: ${c}`, color: C.xp });
+    const pbs = s.personal_bests ?? [];
+    if (pbs.length > 0) {
+      const best = pbs.find((p) => p.kind === 'weight') ?? pbs[0];
+      const eq = recapEquipShort(best.equipment);
+      const val = best.kind === 'weight' ? `${num(best.value)} kg` : `${num(best.value)} reps`;
+      lines.push({ icon: '🏆', text: `${pbs.length} new ${pbs.length === 1 ? 'PB' : 'PBs'}, best: ${best.name}${eq ? ` (${eq})` : ''} ${val}`, color: C.xp });
+    }
+    const blocks: RecapBlock[] = [];
+    if (tiles.length > 0) blocks.push({ kind: 'tiles', tiles: tiles.slice(0, 4) });
+    if (lines.length > 0) blocks.push({ kind: 'lines', items: lines.slice(0, 4) });
+    if (blocks.length > 0) pages.push({ key: 'tests', title: 'Tests and challenges', blocks });
+  }
+
+  // 4. Next month
+  if (workouts > 0) {
+    const attrs = s.attributes ?? {};
+    let goal = `Aim for ${workouts + 1} workouts`;
+    const gaps = RECAP_ATTRS
+      .map((a) => ({ label: a.label.toLowerCase(), month: num(attrs[a.key]?.month), avg: num(attrs[a.key]?.avg) }))
+      .filter((a) => a.avg > 0 && a.month < a.avg)
+      .sort((a, b) => (a.month / a.avg) - (b.month / b.avg));
+    const missing = RECAP_ATTRS.find((a) => num(attrs[a.key]?.month) === 0);
+    if (gaps.length > 0) goal = `Add 2 ${gaps[0].label} sessions to close the gap`;
+    else if (missing) goal = `Add 2 ${missing.label.toLowerCase()} sessions`;
+    const blocks: RecapBlock[] = [{ kind: 'goal', label: `${recapMonthName(s.month, 1)} goal`, text: goal }];
+    const tiles: RecapTile[] = [];
+    if (s.favourite_weekday) tiles.push({ label: 'Favourite training day', value: RECAP_WEEKDAYS[num(s.favourite_weekday)] ?? '' });
+    if (num(s.new_exercises) > 0) tiles.push({ label: 'New exercises tried', value: String(num(s.new_exercises)) });
+    if (tiles.length > 0) blocks.push({ kind: 'tiles', tiles });
+    pages.push({ key: 'next', title: 'Next month', blocks });
+  }
+
+  return pages;
+}
+
+// ─── Recap share image (canvas, 9:16 story format) ───────────────────────────
+const RECAP_W = 1080;
+const RECAP_H = 1920;
+interface RecapImageOptions { showName: boolean; showAvg: boolean }
+
+function recapRoundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function recapFit(ctx: CanvasRenderingContext2D, text: string, maxW: number): string {
+  if (ctx.measureText(text).width <= maxW) return text;
+  let t = text;
+  while (t.length > 1 && ctx.measureText(`${t}…`).width > maxW) t = t.slice(0, -1);
+  return `${t}…`;
+}
+function recapWrap(ctx: CanvasRenderingContext2D, text: string, maxW: number, maxLines: number): string[] {
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let cur = '';
+  for (const w of words) {
+    const next = cur ? `${cur} ${w}` : w;
+    if (ctx.measureText(next).width > maxW && cur) { lines.push(cur); cur = w; } else cur = next;
+  }
+  if (cur) lines.push(cur);
+  if (lines.length > maxLines) {
+    const kept = lines.slice(0, maxLines);
+    kept[maxLines - 1] = recapFit(ctx, `${kept[maxLines - 1]} ${lines.slice(maxLines).join(' ')}`, maxW);
+    return kept;
+  }
+  return lines;
+}
+const RF = (weight: number, size: number, family: 'oswald' | 'inter') =>
+  `${weight} ${size}px ${family === 'oswald' ? "'Oswald'" : "'Inter'"}, sans-serif`;
+
+function recapBlockHeight(b: RecapBlock): number {
+  if (b.kind === 'tiles') return Math.ceil(b.tiles.length / 2) * 210 + (Math.ceil(b.tiles.length / 2) - 1) * 24;
+  if (b.kind === 'list') return 110 + b.rows.length * 80;
+  if (b.kind === 'bars') return 70 + b.items.length * 110;
+  if (b.kind === 'lines') return b.items.length * 110 + (b.items.length - 1) * 20;
+  return 210;
+}
+
+/** Draws one recap page as a standalone 1080×1920 image (logo, month and
+ *  www.wodxp.com on every image, so each one works on its own). */
+function drawRecapPage(ctx: CanvasRenderingContext2D, page: RecapPage, s: MonthlySummary, username: string, opts: RecapImageOptions, logo: HTMLImageElement | null) {
+  const X = 90;
+  const CW = RECAP_W - X * 2;
+  ctx.textBaseline = 'alphabetic';
+  ctx.textAlign = 'left';
+
+  // Background and glowing frame
+  ctx.fillStyle = C.bg;
+  ctx.fillRect(0, 0, RECAP_W, RECAP_H);
+  ctx.save();
+  ctx.shadowColor = C.xp;
+  ctx.shadowBlur = 40;
+  ctx.strokeStyle = C.xp;
+  ctx.lineWidth = 4;
+  recapRoundRect(ctx, 30, 30, RECAP_W - 60, RECAP_H - 60, 56);
+  ctx.stroke();
+  ctx.restore();
+
+  // Header: logo + "My October"
+  if (logo) {
+    ctx.save();
+    recapRoundRect(ctx, X, 110, 130, 130, 30);
+    ctx.clip();
+    ctx.drawImage(logo, X, 110, 130, 130);
+    ctx.restore();
+  }
+  const hx = logo ? X + 160 : X;
+  ctx.fillStyle = C.text;
+  ctx.font = RF(700, 80, 'oswald');
+  ctx.fillText(recapFit(ctx, `My ${recapMonthName(s.month)}`, RECAP_W - hx - X), hx, 190);
+  ctx.fillStyle = C.muted;
+  ctx.font = RF(400, 36, 'inter');
+  const sub = opts.showName && username ? `${recapSubtitle(s)}, ${username}` : recapSubtitle(s);
+  ctx.fillText(recapFit(ctx, sub, RECAP_W - hx - X), hx, 238);
+
+
+  // Content
+  const bottom = 1620;
+  // Sit the content a little above centre so short pages don't look empty.
+  const fitting = page.blocks.map(recapBlockHeight).reduce((acc, h) => (acc + h + 32 <= bottom - 400 + 32 ? acc + h + 32 : acc), 0);
+  let y = 400 + Math.max(0, (bottom - 400 - fitting) / 3);
+  ctx.fillStyle = C.muted;
+  ctx.font = RF(500, 34, 'inter');
+  ctx.fillText(page.title, X, y - 40);
+  for (const b of page.blocks) {
+    const h = recapBlockHeight(b);
+    if (y + h > bottom) continue;
+    if (b.kind === 'tiles') {
+      const tw = (CW - 24) / 2;
+      b.tiles.forEach((t, i) => {
+        const tx = X + (i % 2) * (tw + 24);
+        const ty = y + Math.floor(i / 2) * 234;
+        ctx.fillStyle = t.tint ?? C.surface;
+        recapRoundRect(ctx, tx, ty, tw, 210, 28);
+        ctx.fill();
+        ctx.fillStyle = t.tint ? (t.color ?? C.muted) : C.muted;
+        ctx.font = RF(400, 30, 'inter');
+        ctx.fillText(recapFit(ctx, t.label, tw - 60), tx + 30, ty + 56);
+        ctx.fillStyle = t.color && !t.tint ? t.color : C.text;
+        ctx.font = RF(700, 62, 'oswald');
+        const value = recapFit(ctx, t.value, tw - 60 - (t.delta ? 90 : 0));
+        ctx.fillText(value, tx + 30, ty + 132);
+        if (t.delta) {
+          const vw = ctx.measureText(value).width;
+          ctx.fillStyle = C.xp;
+          ctx.font = RF(700, 40, 'oswald');
+          ctx.fillText(t.delta, tx + 30 + vw + 16, ty + 132);
+        }
+        if (t.note) {
+          ctx.fillStyle = t.color ?? C.muted;
+          ctx.font = RF(500, 28, 'inter');
+          ctx.fillText(recapFit(ctx, t.note, tw - 60), tx + 30, ty + 180);
+        }
+      });
+    } else if (b.kind === 'list') {
+      ctx.fillStyle = C.surface;
+      recapRoundRect(ctx, X, y, CW, h, 28);
+      ctx.fill();
+      ctx.fillStyle = C.muted;
+      ctx.font = RF(400, 30, 'inter');
+      ctx.fillText(b.title, X + 36, y + 60);
+      b.rows.forEach((r, i) => {
+        const ry = y + 90 + i * 80 + 52;
+        ctx.textAlign = 'left';
+        ctx.fillStyle = r.color;
+        ctx.font = RF(700, 46, 'oswald');
+        ctx.fillText(String(r.rank), X + 36, ry);
+        ctx.fillStyle = C.text;
+        ctx.font = RF(600, 38, 'inter');
+        ctx.fillText(recapFit(ctx, r.name, CW - 260), X + 100, ry);
+        ctx.fillStyle = C.muted;
+        ctx.font = RF(400, 32, 'inter');
+        ctx.textAlign = 'right';
+        ctx.fillText(r.right, X + CW - 36, ry);
+        ctx.textAlign = 'left';
+      });
+    } else if (b.kind === 'bars') {
+      ctx.fillStyle = C.muted;
+      ctx.font = RF(400, 30, 'inter');
+      ctx.fillText(opts.showAvg ? b.title : 'Your attributes', X, y + 36);
+      const scale = Math.max(1, ...b.items.map((i) => Math.max(i.month, opts.showAvg ? i.avg ?? 0 : 0))) * 1.1;
+      b.items.forEach((it, i) => {
+        const iy = y + 70 + i * 110;
+        ctx.fillStyle = C.text;
+        ctx.font = RF(600, 36, 'inter');
+        ctx.fillText(it.label, X, iy + 36);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = C.muted;
+        ctx.font = RF(400, 32, 'inter');
+        let right = `${it.month}`;
+        if (opts.showAvg && it.avg && it.avg > 0) {
+          const pct = Math.round(((it.month - it.avg) / it.avg) * 100);
+          right = `${pct > 0 ? '+' : pct < 0 ? '−' : ''}${Math.abs(pct)}%`;
+        }
+        ctx.fillText(right, X + CW, iy + 36);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = C.surface;
+        recapRoundRect(ctx, X, iy + 56, CW, 26, 13);
+        ctx.fill();
+        if (it.month > 0) {
+          ctx.fillStyle = it.color;
+          recapRoundRect(ctx, X, iy + 56, Math.max(26, (CW * it.month) / scale), 26, 13);
+          ctx.fill();
+        }
+        if (opts.showAvg && it.avg && it.avg > 0) {
+          ctx.fillStyle = C.text;
+          ctx.fillRect(X + (CW * it.avg) / scale - 2, iy + 48, 4, 42);
+        }
+      });
+    } else if (b.kind === 'lines') {
+      b.items.forEach((l, i) => {
+        const ly = y + i * 130;
+        ctx.fillStyle = C.surface;
+        recapRoundRect(ctx, X, ly, CW, 110, 28);
+        ctx.fill();
+        ctx.fillStyle = l.color;
+        recapRoundRect(ctx, X, ly, 10, 110, 5);
+        ctx.fill();
+        ctx.fillStyle = C.text;
+        ctx.font = RF(600, 34, 'inter');
+        ctx.fillText(recapFit(ctx, `${l.icon}  ${l.text}`, CW - 80), X + 40, ly + 68);
+      });
+    } else if (b.kind === 'goal') {
+      ctx.fillStyle = `${C.mobility}26`;
+      recapRoundRect(ctx, X, y, CW, h, 28);
+      ctx.fill();
+      ctx.fillStyle = C.mobility;
+      ctx.font = RF(500, 30, 'inter');
+      ctx.fillText(b.label, X + 36, y + 62);
+      ctx.fillStyle = C.text;
+      ctx.font = RF(600, 50, 'oswald');
+      recapWrap(ctx, b.text, CW - 72, 2).forEach((line, i) => ctx.fillText(line, X + 36, y + 132 + i * 60));
+    }
+    y += h + 32;
+  }
+
+  // Footer
+  ctx.strokeStyle = C.border;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(X, 1670);
+  ctx.lineTo(X + CW, 1670);
+  ctx.stroke();
+  ctx.fillStyle = C.text;
+  ctx.font = RF(600, 40, 'oswald');
+  ctx.fillText('Train. Level Up. Challenge.', X, 1752);
+  ctx.fillStyle = C.mobility;
+  ctx.font = RF(700, 54, 'oswald');
+  ctx.fillText('www.wodxp.com', X, 1826);
+}
+
+async function renderRecapImages(pages: RecapPage[], s: MonthlySummary, username: string, opts: RecapImageOptions): Promise<File[]> {
+  try {
+    await Promise.all([
+      document.fonts?.load(RF(700, 80, 'oswald')),
+      document.fonts?.load(RF(600, 40, 'oswald')),
+      document.fonts?.load(RF(400, 30, 'inter')),
+      document.fonts?.load(RF(600, 36, 'inter')),
+    ]);
+  } catch { /* fall back to system fonts */ }
+  let logo: HTMLImageElement | null = null;
+  try {
+    const img = new Image();
+    img.src = '/icon-512.png';
+    await img.decode();
+    logo = img;
+  } catch { logo = null; }
+  const monthSlug = `${recapMonthName(s.month).toLowerCase()}-${s.month.slice(0, 4)}`;
+  const files: File[] = [];
+  for (let i = 0; i < pages.length; i++) {
+    const canvas = document.createElement('canvas');
+    canvas.width = RECAP_W;
+    canvas.height = RECAP_H;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) continue;
+    drawRecapPage(ctx, pages[i], s, username, opts, logo);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+    if (blob) files.push(new File([blob], `wodxp-${monthSlug}-${pages[i].key}.png`, { type: 'image/png' }));
+  }
+  return files;
+}
+
+function RecapBlockView({ block }: { block: RecapBlock }) {
+  if (block.kind === 'tiles') {
+    return (
+      <div className="grid grid-cols-2 gap-2">
+        {block.tiles.map((t, i) => (
+          <div key={i} className="rounded-xl px-3 py-2.5" style={{ backgroundColor: t.tint ?? C.surface }}>
+            <p className="truncate text-[11px]" style={{ color: t.tint ? t.color : C.muted }}>{t.label}</p>
+            <p className="truncate text-xl font-bold" style={{ ...SG, color: t.color && !t.tint ? t.color : C.text }}>
+              {t.value}
+              {t.delta && <span className="ml-1.5 text-sm" style={{ color: C.xp }}>{t.delta}</span>}
+            </p>
+            {t.note && <p className="truncate text-[11px] font-medium" style={{ color: t.color ?? C.muted }}>{t.note}</p>}
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (block.kind === 'list') {
+    return (
+      <div className="rounded-xl px-3 py-2.5" style={{ backgroundColor: C.surface }}>
+        <p className="mb-1 text-[11px]" style={{ color: C.muted }}>{block.title}</p>
+        {block.rows.map((r) => (
+          <div key={r.rank} className="flex items-center gap-2 py-1 text-sm">
+            <span className="w-4 font-bold" style={{ ...SG, color: r.color }}>{r.rank}</span>
+            <span className="truncate">{r.name}</span>
+            <span className="ml-auto shrink-0 text-xs" style={{ color: C.muted }}>{r.right}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (block.kind === 'bars') {
+    const scale = Math.max(1, ...block.items.map((i) => Math.max(i.month, i.avg ?? 0))) * 1.1;
+    return (
+      <div>
+        <p className="mb-1 text-[11px]" style={{ color: C.muted }}>{block.title}</p>
+        {block.items.map((it) => {
+          const pct = it.avg && it.avg > 0 ? Math.round(((it.month - it.avg) / it.avg) * 100) : null;
+          return (
+            <div key={it.label} className="mb-2.5">
+              <div className="flex justify-between text-xs">
+                <span>{it.label}</span>
+                <span style={{ color: C.muted, ...MO }}>{pct == null ? it.month : `${pct > 0 ? '+' : pct < 0 ? '−' : ''}${Math.abs(pct)}%`}</span>
+              </div>
+              <div className="relative mt-1 h-2 rounded-full" style={{ backgroundColor: C.surface }}>
+                {it.month > 0 && <div className="h-2 rounded-full" style={{ width: `${Math.max(4, (it.month / scale) * 100)}%`, backgroundColor: it.color, boxShadow: `0 0 6px ${it.color}66` }} />}
+                {it.avg != null && it.avg > 0 && <div className="absolute -top-1 h-4 w-0.5" style={{ left: `${(it.avg / scale) * 100}%`, backgroundColor: C.text }} />}
+              </div>
+            </div>
+          );
+        })}
+        <p className="text-[11px]" style={{ color: C.muted }}>Line = your monthly average (last 6 months)</p>
+      </div>
+    );
+  }
+  if (block.kind === 'lines') {
+    return (
+      <div className="flex flex-col gap-2">
+        {block.items.map((l, i) => (
+          <div key={i} className="truncate rounded-xl border-l-4 px-3 py-2.5 text-sm" style={{ backgroundColor: C.surface, borderColor: l.color }}>
+            {l.icon} {l.text}
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-xl px-3 py-3" style={{ backgroundColor: `${C.mobility}26` }}>
+      <p className="text-[11px]" style={{ color: C.mobility }}>{block.label}</p>
+      <p className="mt-1 text-base font-semibold" style={SG}>{block.text}</p>
+    </div>
+  );
+}
+
+function MonthlyRecapModal({ summary, username, premiumLocked, onClose }: {
+  summary: MonthlySummary; username: string; premiumLocked: boolean; onClose: () => void;
+}) {
+  const pages = React.useMemo(() => buildRecapPages(summary, premiumLocked), [summary, premiumLocked]);
+  const trackRef = React.useRef<HTMLDivElement>(null);
+  const [current, setCurrent] = useState(0);
+  const [canHover, setCanHover] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [scope, setScope] = useState<'page' | 'all'>('page');
+  const [showName, setShowName] = useState(false);
+  const [showAvg, setShowAvg] = useState(false);
+  const [files, setFiles] = useState<File[] | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [shareNote, setShareNote] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    try {
+      setCanHover(window.matchMedia('(hover: hover) and (pointer: fine)').matches);
+      setReduceMotion(window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    } catch { /* older browsers */ }
+  }, []);
+
+  // Premium content can disappear once premium status loads; nothing left → just close.
+  React.useEffect(() => {
+    if (pages.length === 0) onClose();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pages.length]);
+
+  const go = (i: number) => {
+    const el = trackRef.current;
+    if (!el) return;
+    const idx = Math.max(0, Math.min(pages.length - 1, i));
+    el.scrollTo({ left: idx * el.clientWidth, behavior: reduceMotion ? 'auto' : 'smooth' });
+  };
+  const onScroll = () => {
+    const el = trackRef.current;
+    if (!el || el.clientWidth === 0) return;
+    setCurrent(Math.round(el.scrollLeft / el.clientWidth));
+  };
+
+  // Coming back from the share panel remounts the track; restore the page.
+  React.useEffect(() => {
+    if (sharing) return;
+    const el = trackRef.current;
+    if (el) el.scrollLeft = current * el.clientWidth;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sharing]);
+
+  const hasBars = pages.some((p) => p.blocks.some((b) => b.kind === 'bars'));
+  const pageIndex = Math.min(current, pages.length - 1);
+
+  // Images are rendered ahead of the tap, so navigator.share() runs directly
+  // inside the click (Safari rejects a share started after async work).
+  React.useEffect(() => {
+    if (!sharing || pages.length === 0) return;
+    let cancelled = false;
+    setFiles(null);
+    const chosen = scope === 'all' ? pages : [pages[pageIndex]];
+    renderRecapImages(chosen, summary, username, { showName, showAvg }).then((f) => {
+      if (cancelled) return;
+      setFiles(f);
+      setPreviewUrl(f[0] ? URL.createObjectURL(f[0]) : null);
+    });
+    return () => { cancelled = true; };
+  }, [sharing, scope, showName, showAvg, pageIndex, pages, summary, username]);
+  React.useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
+
+  const canShareFiles = !!files && files.length > 0 && typeof navigator !== 'undefined' && typeof navigator.canShare === 'function' && navigator.canShare({ files });
+
+  const saveImages = () => {
+    if (!files) return;
+    files.forEach((f, i) => {
+      window.setTimeout(() => {
+        const url = URL.createObjectURL(f);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = f.name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 4000);
+      }, i * 400);
+    });
+    setShareNote(files.length > 1 ? 'Images saved' : 'Image saved');
+  };
+  const shareImages = () => {
+    if (!files || !canShareFiles) { saveImages(); return; }
+    navigator.share({ files }).then(() => setShareNote('Shared!')).catch((e: { name?: string }) => {
+      if (e?.name === 'AbortError') return;
+      saveImages();
+    });
+  };
+
+  if (pages.length === 0) return null;
+  const month = recapMonthName(summary.month);
+
+  return (
+    <SafeModalShell>
+      <style>{'.wodxp-recap-track{scrollbar-width:none}.wodxp-recap-track::-webkit-scrollbar{display:none}'}</style>
+      <div className="relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-3xl border" style={{ borderColor: C.xp, backgroundColor: C.bg, boxShadow: `0 0 24px ${C.xp}33` }}>
+        <button onClick={onClose} aria-label="Close" className="absolute right-3 top-3 z-10 rounded-full p-1.5" style={{ color: C.muted }}>
+          <X size={20} />
+        </button>
+
+        {/* Fixed top: logo and month */}
+        <div className="flex items-center gap-3 px-5 pb-2 pt-5">
+          <img src="/icon-512.png" alt="WODXP" className="h-11 w-11 rounded-xl" />
+          <div className="min-w-0">
+            <h2 className="text-xl font-bold leading-tight" style={SG}>My {month}</h2>
+            <p className="truncate text-xs" style={{ color: C.muted }}>{recapSubtitle(summary)}{username ? `, ${username}` : ''}</p>
+          </div>
+        </div>
+
+        {!sharing ? (
+          <>
+            {/* Swipeable middle */}
+            <div ref={trackRef} onScroll={onScroll} className="wodxp-recap-track flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto">
+              {pages.map((p) => (
+                <section key={p.key} className="flex w-full shrink-0 snap-start flex-col gap-2 overflow-y-auto px-5 py-2" style={{ minHeight: 340 }}>
+                  <p className="text-xs" style={{ color: C.muted }}>{p.title}</p>
+                  {p.blocks.map((b, i) => <RecapBlockView key={i} block={b} />)}
+                </section>
+              ))}
+            </div>
+
+            {pages.length > 1 && (
+              <div className="flex items-center justify-center gap-3 px-5 pt-2">
+                {canHover && (
+                  <button onClick={() => go(pageIndex - 1)} aria-label="Previous" disabled={pageIndex === 0} className="rounded-lg border p-1 disabled:opacity-30" style={{ borderColor: C.border, color: C.muted }}>
+                    <ChevronLeft size={16} />
+                  </button>
+                )}
+                <div className="flex items-center gap-1.5">
+                  {pages.map((p, i) => (
+                    <button key={p.key} onClick={() => go(i)} aria-label={`Page ${i + 1}`} className="h-2 rounded-full transition-all"
+                      style={{ width: i === pageIndex ? 18 : 8, backgroundColor: i === pageIndex ? C.xp : C.border }}></button>
+                  ))}
+                </div>
+                {canHover && (
+                  <button onClick={() => go(pageIndex + 1)} aria-label="Next" disabled={pageIndex === pages.length - 1} className="rounded-lg border p-1 disabled:opacity-30" style={{ borderColor: C.border, color: C.muted }}>
+                    <ChevronRight size={16} />
+                  </button>
+                )}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 py-2">
+            <div className="flex justify-center">
+              {previewUrl
+                ? <img src={previewUrl} alt="Share preview" className="h-56 rounded-xl border" style={{ borderColor: C.border }} />
+                : <div className="flex h-56 w-[126px] items-center justify-center rounded-xl border text-xs" style={{ borderColor: C.border, color: C.muted }}>Preparing…</div>}
+            </div>
+            {pages.length > 1 && (
+              <div className="grid grid-cols-2 gap-2">
+                {(['page', 'all'] as const).map((v) => (
+                  <button key={v} onClick={() => setScope(v)} className="rounded-xl border py-2 text-xs font-semibold"
+                    style={{ borderColor: scope === v ? C.xp : C.border, color: scope === v ? C.xp : C.muted }}>
+                    {v === 'page' ? 'This page' : `All pages (${pages.length})`}
+                  </button>
+                ))}
+              </div>
+            )}
+            {scope === 'all' && <p className="text-[11px]" style={{ color: C.muted }}>Some apps only accept one image at a time.</p>}
+            <label className="flex items-center justify-between text-sm">
+              <span>Show my username</span>
+              <input type="checkbox" checked={showName} onChange={(e) => setShowName(e.target.checked)} className="h-4 w-4" style={{ accentColor: C.xp }} />
+            </label>
+            {hasBars && (
+              <label className="flex items-center justify-between text-sm">
+                <span>Compare with my average</span>
+                <input type="checkbox" checked={showAvg} onChange={(e) => setShowAvg(e.target.checked)} className="h-4 w-4" style={{ accentColor: C.xp }} />
+              </label>
+            )}
+            <div className="mt-1 flex flex-col gap-2">
+              {canShareFiles && (
+                <button onClick={shareImages} disabled={!files} className="flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold disabled:opacity-40" style={{ backgroundColor: C.xp, color: '#04140A', ...SG }}>
+                  <Share2 size={16} /> Share
+                </button>
+              )}
+              <button onClick={saveImages} disabled={!files} className="flex items-center justify-center gap-2 rounded-2xl border py-3 text-sm font-bold disabled:opacity-40"
+                style={canShareFiles ? { borderColor: C.border, color: C.text, ...SG } : { backgroundColor: C.xp, borderColor: C.xp, color: '#04140A', ...SG }}>
+                <Download size={16} /> {files && files.length > 1 ? 'Save images' : 'Save image'}
+              </button>
+              {shareNote && <p className="text-center text-xs" style={{ color: C.xp }}>{shareNote}</p>}
+              <button onClick={() => { setSharing(false); setShareNote(null); }} className="py-1 text-xs" style={{ color: C.muted }}>Back to recap</button>
+            </div>
+          </div>
+        )}
+
+        {/* Fixed bottom: tagline, url and Share */}
+        <div className="mt-2 flex items-center justify-between border-t px-5 pb-4 pt-3" style={{ borderColor: C.border }}>
+          <div>
+            <p className="text-[11px] font-semibold" style={SG}>Train. Level Up. Challenge.</p>
+            <p className="text-sm font-bold" style={{ ...SG, color: C.mobility }}>www.wodxp.com</p>
+          </div>
+          {!sharing && (
+            <LedBorderButton onClick={() => { setShareNote(null); setSharing(true); }} radius={12}
+              className="flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-bold" style={{ backgroundColor: C.xp, color: '#04140A', ...SG }}>
+              <Share2 size={15} /> Share
+            </LedBorderButton>
+          )}
+        </div>
+      </div>
+    </SafeModalShell>
+  );
+}
+
 // ─── Streak & Level-up messages ────────────────────────────────────────────────
 const STREAK_MESSAGES: Record<3 | 5 | 7, string[]> = {
   3: [
@@ -5813,6 +6539,34 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Monthly recap (backlog 13): first app open in a new month shows last
+  // month's summary, once. The month is counted in the device's time zone.
+  const [monthlyRecap, setMonthlyRecap] = useState<MonthlySummary | null>(null);
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let tz = 'UTC';
+      try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { /* keep UTC */ }
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc('get_monthly_summary', { p_tz: tz });
+      if (cancelled || error || !data) return;
+      const s = data as MonthlySummary;
+      if (!s.is_complete || s.already_seen) return;
+      if (!s.has_data || buildRecapPages(s, false).length === 0) {
+        // Nothing to show, but still mark the month so next month gets "level from".
+        // The query builder only runs when awaited/then'd.
+        supabase.rpc('mark_monthly_summary_seen', { p_month: s.month }).then(() => {}, () => {});
+        return;
+      }
+      setMonthlyRecap(s);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+  const closeMonthlyRecap = () => {
+    if (monthlyRecap) createClient().rpc('mark_monthly_summary_seen', { p_month: monthlyRecap.month }).then(() => {}, () => {});
+    setMonthlyRecap(null);
+  };
+
   // Movements unlocked (the `exercises` list) are filtered server-side by
   // attribute level at page load — like All-Time Stats, they'd stay frozen
   // after a workout unless explicitly refetched. Returns how many NEW
@@ -6091,6 +6845,9 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
       )}
       {showCodeModal && <AccessCodeModal status={premium} onClose={() => setShowCodeModal(false)} onRedeemed={(p) => setPremium(p)} />}
       {restBonus && <RestBonusModal xp={restBonus.xp} streak={restBonus.streak} onClose={() => setRestBonus(null)} />}
+      {monthlyRecap && !restBonus && (
+        <MonthlyRecapModal summary={monthlyRecap} username={user.username} premiumLocked={premiumLocked} onClose={closeMonthlyRecap} />
+      )}
       {showInstallGuide && (
         <InstallGuideModal installEvent={installEvent} onClose={() => setShowInstallGuide(false)} onInstalled={() => { setInstalled(true); setInstallEvent(null); }} />
       )}
