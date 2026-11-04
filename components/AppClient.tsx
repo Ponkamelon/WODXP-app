@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { readPendingCode, clearPendingCode } from '@/lib/pendingCode';
 import { motion, useMotionValue, animate } from 'motion/react';
 import {
   Flame, ChevronRight, Search, Lock, Trophy, Swords, Plus, Crown,
@@ -4864,7 +4865,8 @@ function PremiumLockModal({ feature, onEnterCode, onClose }: { feature: string; 
 }
 
 function AccessCodeModal({ status, onClose, onRedeemed }: { status: PremiumStatus | null; onClose: () => void; onRedeemed: (p: PremiumStatus) => void }) {
-  const [code, setCode] = useState('');
+  // A code from a printed card (QR link) is remembered on the device and pre-filled here.
+  const [code, setCode] = useState(() => readPendingCode() ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<PremiumStatus | null>(null);
@@ -4890,6 +4892,7 @@ function AccessCodeModal({ status, onClose, onRedeemed }: { status: PremiumStatu
       setBusy(false);
       return;
     }
+    clearPendingCode();
     const { data: fresh } = await supabase.rpc('get_my_premium');
     const next: PremiumStatus = fresh ?? { active: true, lifetime: data.lifetime === true, premium_until: data.premium_until ?? null };
     setDone(next);
@@ -6348,6 +6351,13 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     });
     return () => { cancelled = true; };
   }, []);
+  // Came from a printed card (QR link): open the Access code box once, with the code filled in.
+  const pendingCodeShown = React.useRef(false);
+  React.useEffect(() => {
+    if (premium === null || pendingCodeShown.current) return;
+    if (premium.active) { clearPendingCode(); return; }
+    if (readPendingCode()) { pendingCodeShown.current = true; setShowCodeModal(true); }
+  }, [premium]);
   // The server said Premium is required (expired or never had it): lock the UI and explain.
   const handlePremiumRequired = () => {
     setPremium({ active: false, lifetime: false, premium_until: null });

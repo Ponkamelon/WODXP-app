@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { MIN_AGE, TERMS_VERSION, isOldEnough, isValidBirthYear } from '@/lib/legal';
+import { capturePendingCode } from '@/lib/pendingCode';
 
 // Set when someone enters an age under the limit, so changing the year and
 // trying again on the same device does not get around the check.
@@ -26,6 +27,7 @@ export default function SignupPage() {
   const [ageBlocked, setAgeBlocked] = useState(false);
 
   useEffect(() => {
+    capturePendingCode(window.location.search);
     try {
       if (localStorage.getItem(AGE_BLOCK_KEY)) setAgeBlocked(true);
     } catch {
