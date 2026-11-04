@@ -328,7 +328,8 @@ function ModalTransition({ children, onBackdropClick }: { children: React.ReactN
 /**
  * Keeps the screen from sleeping/dimming while `active` is true, using the
  * standard Screen Wake Lock API. Used during running timers (Boss Battles,
- * Classic WODs, timed Level Challenges) so the phone doesn't lock mid-set.
+ * Classic WODs, timed Level Challenges) and during a whole normal workout, so the
+ * phone doesn't lock between exercises.
  * Fails silently on browsers without support — the timer itself still
  * works fine, the screen just might dim on its own timeout there.
  */
@@ -351,6 +352,9 @@ function useWakeLock(active: boolean) {
             lock.release().catch(() => {});
           } else {
             wakeLockRef.current = lock;
+            // The OS can release the lock by itself (low battery, app switch). Forget it then,
+            // so it is requested again when the page becomes visible.
+            lock.addEventListener?.('release', () => { if (wakeLockRef.current === lock) wakeLockRef.current = null; });
           }
         }
       } catch {
@@ -2821,6 +2825,8 @@ function WorkoutScreen({ exercises: initialExercises, pool: fullPool, userId, du
   // only get a started_at/completed_at pair at save time (both ~identical),
   // making "time trained" always compute to ~0 seconds.
   const [startedAt] = useState(() => new Date().toISOString());
+  // Keep the screen on for the whole workout, not only while a timer runs.
+  useWakeLock(true);
   // The session's exercises live in state so a single one can be swapped
   // for another before its first set is logged.
   const [exercises, setExercises] = useState<Exercise[]>(initialExercises);
