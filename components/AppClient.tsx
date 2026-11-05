@@ -2611,6 +2611,10 @@ function SafetyNoticeScreen({ onBack, onContinue }: { onBack: () => void; onCont
           Listen to your body. Choose weights and movements that feel right for you. Focus on good form,
           stay in control, and adjust or stop an exercise if you feel pain or discomfort.
         </p>
+        <p className="mt-4 max-w-sm text-base leading-relaxed" style={{ color: C.text }}>
+          <span className="font-bold" style={{ color: C.conditioning }}>Don&apos;t skip your warm-up.</span>{' '}
+          A few minutes of easy movement gets your joints and muscles ready.
+        </p>
         <p className="mt-4 text-lg font-bold" style={{ color: C.xp, ...SG }}>
           Your workout. Your pace.
         </p>
