@@ -11,7 +11,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 // /privacy and /terms must stay public: app stores (and anyone) need to reach
 // them without logging in first, and they are linked from the signup form.
-const PUBLIC_ROUTES = ['/login', '/signup', '/auth/callback', '/privacy', '/terms'];
+// /api/stripe-webhook is called by Stripe's servers (no login); it verifies Stripe's signature itself.
+const PUBLIC_ROUTES = ['/login', '/signup', '/auth/callback', '/privacy', '/terms', '/api/stripe-webhook'];
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });

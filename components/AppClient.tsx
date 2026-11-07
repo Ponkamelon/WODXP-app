@@ -4841,6 +4841,108 @@ function premiumLabel(p: PremiumStatus | null): string {
   return p.premium_until ? `Premium until ${new Date(p.premium_until).toLocaleDateString()}` : 'Premium';
 }
 
+// Payment link from Stripe (set NEXT_PUBLIC_STRIPE_PAYMENT_LINK in Vercel). Without it the buy
+// button is hidden, so nothing half-working is shown. The buyer's user id travels with the link
+// (client_reference_id) and the Stripe webhook uses it to give Premium to the right account.
+const PREMIUM_PAYMENT_LINK = process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK ?? '';
+
+async function openPremiumCheckout(): Promise<boolean> {
+  if (!PREMIUM_PAYMENT_LINK) return false;
+  const { data } = await createClient().auth.getUser();
+  const user = data?.user;
+  if (!user) return false;
+  const url = new URL(PREMIUM_PAYMENT_LINK);
+  url.searchParams.set('client_reference_id', user.id);
+  if (user.email) url.searchParams.set('prefilled_email', user.email);
+  window.location.href = url.toString();
+  return true;
+}
+
+function BuyPremiumButton({ extend, primary }: { extend?: boolean; primary?: boolean }) {
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  if (!PREMIUM_PAYMENT_LINK) return null;
+  const go = async () => {
+    setBusy(true);
+    setFailed(false);
+    try {
+      const ok = await openPremiumCheckout();
+      if (!ok) { setFailed(true); setBusy(false); }
+    } catch {
+      setFailed(true);
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="flex flex-col gap-1">
+      <button
+        onClick={go}
+        disabled={busy}
+        className="rounded-2xl py-3.5 text-sm font-bold transition-transform active:scale-[0.96] disabled:opacity-50"
+        style={primary
+          ? { backgroundColor: C.xp, color: '#04140A', ...SG }
+          : { border: `1px solid ${C.xp}`, color: C.xp, backgroundColor: 'transparent', ...SG }}
+      >
+        {busy ? 'Opening checkout…' : extend ? 'Add 12 months · 49 kr' : 'Get Premium · 12 months · 49 kr'}
+      </button>
+      <p className="text-[11px]" style={{ color: failed ? C.boss : C.muted }}>
+        {failed ? 'Could not open the checkout. Please try again.' : 'One payment, no automatic renewal. VAT included.'}
+      </p>
+    </div>
+  );
+}
+
+/** Shown when the user comes back from Stripe (?premium=thanks). Waits for the webhook to give Premium. */
+function PremiumThanksModal({ onClose, onActive }: { onClose: () => void; onActive: (p: PremiumStatus) => void }) {
+  const [state, setState] = useState<'waiting' | 'done' | 'late'>('waiting');
+  const [status, setStatus] = useState<PremiumStatus | null>(null);
+  React.useEffect(() => {
+    let cancelled = false;
+    const supabase = createClient();
+    const untilMs = (p: PremiumStatus | null) => (p?.lifetime ? Infinity : p?.premium_until ? new Date(p.premium_until).getTime() : 0);
+    (async () => {
+      const { data: before } = await supabase.rpc('get_my_premium');
+      const beforeMs = before?.active ? untilMs(before as PremiumStatus) : 0;
+      for (let i = 0; i < 15 && !cancelled; i++) {
+        await new Promise((r) => setTimeout(r, i === 0 ? 1500 : 2000));
+        if (cancelled) return;
+        const { data } = await supabase.rpc('get_my_premium');
+        if (data?.active && untilMs(data as PremiumStatus) > beforeMs) {
+          setStatus(data as PremiumStatus);
+          setState('done');
+          onActive(data as PremiumStatus);
+          return;
+        }
+      }
+      if (!cancelled) setState('late');
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <SafeModalShell onBackdropClick={state === 'waiting' ? undefined : onClose}>
+      <div className="w-full max-w-sm rounded-3xl border p-6 text-center" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+        <h2 className="text-xl font-bold" style={{ color: C.xp, ...SG }}>
+          {state === 'done' ? 'Premium is on!' : state === 'late' ? 'Thank you!' : 'Thank you!'}
+        </h2>
+        <p className="mt-3 text-sm leading-relaxed" style={{ color: C.text }}>
+          {state === 'waiting' && 'We are activating your Premium. This usually takes a few seconds.'}
+          {state === 'done' && <><strong>{premiumLabel(status)}</strong>. Fitness Tests and the Classic Challenges are unlocked.</>}
+          {state === 'late' && 'Your payment is being processed. Premium appears in your account shortly. If it is not there within a few minutes, email pontus.melin@gmail.com and we will fix it.'}
+        </p>
+        <button
+          onClick={onClose}
+          disabled={state === 'waiting'}
+          className="mt-5 w-full rounded-2xl py-3 text-sm font-bold disabled:opacity-40"
+          style={{ backgroundColor: C.xp, color: '#04140A', ...SG }}
+        >
+          {state === 'waiting' ? 'Activating…' : 'Close'}
+        </button>
+      </div>
+    </SafeModalShell>
+  );
+}
+
 /** Banner shown at the top of Premium screens when the user doesn't have Premium. */
 function PremiumLockBanner({ feature, onEnterCode }: { feature: string; onEnterCode: () => void }) {
   return (
@@ -4863,10 +4965,11 @@ function PremiumLockModal({ feature, onEnterCode, onClose }: { feature: string; 
         <Lock size={28} style={{ color: C.boss }} className="mx-auto" />
         <h2 className="mt-3 text-lg font-bold" style={SG}>{feature} is Premium</h2>
         <p className="mt-1 text-sm" style={{ color: C.muted }}>
-          Unlock it with an access code. Your XP, levels, bosses, Friends and normal workouts stay free, and results you already saved stay visible.
+          Unlock it with Premium or an access code. Your XP, levels, bosses, Friends and normal workouts stay free, and results you already saved stay visible.
         </p>
         <div className="mt-6 flex flex-col gap-2">
-          <button onClick={onEnterCode} className="rounded-2xl py-3.5 text-sm font-bold transition-transform active:scale-[0.96]" style={{ backgroundColor: C.xp, color: '#04140A', ...SG }}>Enter access code</button>
+          <BuyPremiumButton primary />
+          <button onClick={onEnterCode} className="rounded-2xl border py-3.5 text-sm font-bold transition-transform active:scale-[0.96]" style={PREMIUM_PAYMENT_LINK ? { borderColor: C.border, color: C.text, ...SG } : { backgroundColor: C.xp, borderColor: C.xp, color: '#04140A', ...SG }}>Enter access code</button>
           <button onClick={onClose} className="rounded-2xl border py-3.5 text-sm font-bold" style={{ borderColor: C.border, color: C.muted, ...SG }}>Not now</button>
         </div>
       </div>
@@ -4943,6 +5046,12 @@ function AccessCodeModal({ status, onClose, onRedeemed }: { status: PremiumStatu
               onKeyDown={(e) => { if (e.key === 'Enter') handleRedeem(); }}
             />
             {error && <p className="mt-3 text-sm" style={{ color: C.boss }}>{error}</p>}
+            {PREMIUM_PAYMENT_LINK && (
+              <div className="mt-4 border-t pt-4" style={{ borderColor: C.border }}>
+                <p className="mb-2 text-xs" style={{ color: C.muted }}>No code?</p>
+                <BuyPremiumButton extend={status?.active === true} />
+              </div>
+            )}
           </>
         )}
         <div className="mt-5 flex gap-3">
@@ -4995,6 +5104,11 @@ function ProfileMenu({ onPremiumChange, userId, username, level, onLogout, onPri
           <span>Add to Home Screen{installed && <span className="ml-2 text-xs font-medium" style={{ color: C.xp }}>Installed ✓</span>}</span>
           <ChevronRight size={16} style={{ color: C.muted }} />
         </button>
+        {PREMIUM_PAYMENT_LINK && premium !== null && (
+          <div className="rounded-2xl border p-4" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+            <BuyPremiumButton primary={!premium.active} extend={premium.active} />
+          </div>
+        )}
         <button onClick={() => setShowCode(true)} className="flex w-full items-center justify-between rounded-2xl border py-4 px-5 text-sm font-bold" style={{ borderColor: C.border, color: C.text, backgroundColor: C.surface, ...SG }}>
           <span>Access code{premium?.active && <span className="ml-2 text-xs font-medium" style={{ color: C.xp }}>{premiumLabel(premium)}</span>}</span>
           <ChevronRight size={16} style={{ color: C.muted }} />
@@ -6354,6 +6468,19 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
   const premiumLocked = premium !== null && !premium.active;
   const [showCodeModal, setShowCodeModal] = useState(false);
   const [lockModalFeature, setLockModalFeature] = useState<string | null>(null);
+  // Back from the Stripe checkout (the payment link redirects to /?premium=thanks).
+  const [showThanks, setShowThanks] = useState(false);
+  React.useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('premium') === 'thanks') {
+        params.delete('premium');
+        const qs = params.toString();
+        window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : ''));
+        setShowThanks(true);
+      }
+    } catch { /* ignore */ }
+  }, []);
   React.useEffect(() => {
     let cancelled = false;
     createClient().rpc('get_my_premium').then(({ data, error }) => {
@@ -6864,6 +6991,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
         <PremiumLockModal feature={lockModalFeature} onClose={() => setLockModalFeature(null)} onEnterCode={() => { setLockModalFeature(null); setShowCodeModal(true); }} />
       )}
       {showCodeModal && <AccessCodeModal status={premium} onClose={() => setShowCodeModal(false)} onRedeemed={(p) => setPremium(p)} />}
+      {showThanks && <PremiumThanksModal onClose={() => setShowThanks(false)} onActive={(p) => setPremium(p)} />}
       {restBonus && <RestBonusModal xp={restBonus.xp} streak={restBonus.streak} onClose={() => setRestBonus(null)} />}
       {monthlyRecap && !restBonus && (
         <MonthlyRecapModal summary={monthlyRecap} username={user.username} premiumLocked={premiumLocked} onClose={closeMonthlyRecap} />
