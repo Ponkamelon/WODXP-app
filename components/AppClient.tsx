@@ -1705,6 +1705,46 @@ function pickVariedExercises(pool: Exercise[], count: number, records?: Record<s
   return selected;
 }
 
+// ─── Starred exercises (unlocked at Quest level 4) ───
+const STAR_UNLOCK_LEVEL = 4;
+const MAX_STARRED = 100;
+const lastStarredKey = (userId: string) => `wodxp_last_starred_${userId}`;
+function readLastStarred(userId: string): Set<string> {
+  try {
+    const raw = window.localStorage.getItem(lastStarredKey(userId));
+    const arr = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(arr) ? arr.filter((x: unknown) => typeof x === 'string') : []);
+  } catch { return new Set(); }
+}
+function saveLastStarred(userId: string, ids: string[]) {
+  try { window.localStorage.setItem(lastStarredKey(userId), JSON.stringify(ids)); } catch { /* storage unavailable */ }
+}
+
+/**
+ * Generated workout with starred exercises mixed in: at most a third of the workout (1 for 10-30 min,
+ * 2 for 45 min). Stars not done for the longest come first, and a starred exercise that was in the
+ * previous generated workout sits this one out (unless too few other stars exist). The rest is
+ * filled like before: varied, least-done first, without extra stars.
+ */
+function pickWithStars(pool: Exercise[], count: number, records: Record<string, ExerciseRecord>, starredIds: Set<string>, lastStarredIds: Set<string>): Exercise[] {
+  const starredInPool = pool.filter((ex) => starredIds.has(ex.id));
+  const maxStars = Math.max(1, Math.floor(count / 3));
+  if (starredInPool.length === 0) return pickVariedExercises(pool, count, records);
+  const longestAgo = (ex: Exercise) => records[ex.id]?.lastDate ?? ''; // '' = never done, sorts first
+  const byOldest = (list: Exercise[]) => weightedShuffle(list, () => 1).sort((a, b) => longestAgo(a).localeCompare(longestAgo(b)));
+  const rested = byOldest(starredInPool.filter((ex) => !lastStarredIds.has(ex.id)));
+  const justDone = byOldest(starredInPool.filter((ex) => lastStarredIds.has(ex.id)));
+  const stars = [...rested, ...justDone].slice(0, maxStars);
+  const starIds = new Set(stars.map((s) => s.id));
+  const rest = count - stars.length;
+  let fill = pickVariedExercises(pool, rest, records, new Set(starredInPool.map((ex) => ex.id)));
+  if (fill.length < rest) {
+    const taken = new Set([...starIds, ...fill.map((f) => f.id)]);
+    fill = [...fill, ...pickVariedExercises(pool, rest - fill.length, records, taken)];
+  }
+  return weightedShuffle([...stars, ...fill], () => 1);
+}
+
 /** Finds the full Exercise record matching a boss/challenge's exercise_name,
  *  so its illustration + step-by-step instructions can be shown on demand. */
 function findExerciseByName(exercises: Exercise[], name: string | null | undefined): Exercise | null {
@@ -2463,7 +2503,7 @@ function WodResultScreen({ result, wod, onHome }: {
   );
 }
 
-function GeneratorScreen({ exercises, totalExerciseCount, records, onBack, onStart }: { exercises: Exercise[]; totalExerciseCount: number; records: Record<string, ExerciseRecord>; onBack: () => void; onStart: (exs: Exercise[], durationMinutes: number, pool: Exercise[], mixed: boolean) => void }) {
+function GeneratorScreen({ exercises, totalExerciseCount, records, userId, starredIds, onBack, onStart }: { exercises: Exercise[]; totalExerciseCount: number; records: Record<string, ExerciseRecord>; userId: string; starredIds: Set<string>; onBack: () => void; onStart: (exs: Exercise[], durationMinutes: number, pool: Exercise[], mixed: boolean) => void }) {
   const [equipment, setEquipment] = useState<Set<'kettlebell' | 'dumbbell' | 'bodyweight'>>(
     new Set(['kettlebell', 'dumbbell', 'bodyweight'])
   );
@@ -2493,7 +2533,11 @@ function GeneratorScreen({ exercises, totalExerciseCount, records, onBack, onSta
     const equipmentPool = exercises.filter((ex) => equipment.has(pickPrimaryEquipment(ex.equipment)));
     const pool = goal === 'mixed' ? equipmentPool : equipmentPool.filter((ex) => ex.primary_attribute === goal);
     const count = duration <= 10 ? 3 : duration <= 20 ? 4 : duration <= 30 ? 5 : 6;
-    const picked = pickVariedExercises(pool.length > 0 ? pool : equipmentPool, count, records);
+    const usedPool = pool.length > 0 ? pool : equipmentPool;
+    const picked = starredIds.size > 0
+      ? pickWithStars(usedPool, count, records, starredIds, readLastStarred(userId))
+      : pickVariedExercises(usedPool, count, records);
+    if (starredIds.size > 0) saveLastStarred(userId, picked.filter((ex) => starredIds.has(ex.id)).map((ex) => ex.id));
     setTimeout(() => onStart(picked, duration, pool.length > 0 ? pool : equipmentPool, goal === 'mixed'), 750);
   };
 
@@ -2824,7 +2868,7 @@ function HoldTimer({ accent, reps, kind = 'hold' }: { accent: string; reps: numb
   );
 }
 
-function WorkoutScreen({ exercises: initialExercises, pool: fullPool, userId, durationMinutes, mixed, records, blockedIds, onToggleBlock, onBack, onFinish }: { exercises: Exercise[]; pool: Exercise[]; userId: string; durationMinutes: number; mixed: boolean; records: Record<string, ExerciseRecord>; blockedIds: Set<string>; onToggleBlock: (ex: Exercise) => void; onBack: () => void; onFinish: (requestedXp: number, grantedXp: number, doneLogs: { exerciseId: string; weight: number; reps: number }[], challenges: ChallengeClear[]) => void }) {
+function WorkoutScreen({ exercises: initialExercises, pool: fullPool, userId, durationMinutes, mixed, records, blockedIds, onToggleBlock, starredIds, onToggleStar, starLocked, onBack, onFinish }: { exercises: Exercise[]; pool: Exercise[]; userId: string; durationMinutes: number; mixed: boolean; records: Record<string, ExerciseRecord>; blockedIds: Set<string>; onToggleBlock: (ex: Exercise) => void; starredIds: Set<string>; onToggleStar: (ex: Exercise) => void; starLocked: boolean; onBack: () => void; onFinish: (requestedXp: number, grantedXp: number, doneLogs: { exerciseId: string; weight: number; reps: number }[], challenges: ChallengeClear[]) => void }) {
   // Captured once, when the workout screen first mounts — i.e. when the
   // user actually starts training. Without this, the session row would
   // only get a started_at/completed_at pair at save time (both ~identical),
@@ -3034,6 +3078,7 @@ function WorkoutScreen({ exercises: initialExercises, pool: fullPool, userId, du
       </div>
       {viewing && (
         <ExerciseDetailModal exercise={viewing} onClose={() => setViewing(null)} blocked={blockedIds.has(viewing.id)}
+          starred={starredIds.has(viewing.id)} onToggleStar={() => onToggleStar(viewing)} starLocked={starLocked}
           onToggleBlock={() => {
             const wasBlocked = blockedIds.has(viewing.id);
             onToggleBlock(viewing);
@@ -4077,16 +4122,23 @@ function splitIntoSteps(text?: string): string[] {
     .filter(Boolean);
 }
 
-function ExerciseDetailModal({ exercise, onClose, blocked, onToggleBlock }: { exercise: Exercise; onClose: () => void; blocked?: boolean; onToggleBlock?: () => void }) {
+function ExerciseDetailModal({ exercise, onClose, blocked, onToggleBlock, starred, onToggleStar, starLocked }: { exercise: Exercise; onClose: () => void; blocked?: boolean; onToggleBlock?: () => void; starred?: boolean; onToggleStar?: () => void; starLocked?: boolean }) {
   const equipment = pickPrimaryEquipment(exercise.equipment);
   const steps = splitIntoSteps(exercise.instructions);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col overflow-auto" style={{ backgroundColor: C.bg }}>
-      <div className="flex items-center px-5 pt-6 pb-2">
+      <div className="flex items-center justify-between px-5 pt-6 pb-2">
         <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-full border" style={{ borderColor: C.border, backgroundColor: C.surface }}>
           <ArrowLeft size={16} style={{ color: C.text }} />
         </button>
+        {onToggleStar && (
+          <button onClick={starLocked ? undefined : onToggleStar} disabled={starLocked} aria-label={starred ? 'Remove star' : 'Star this exercise'}
+            className="flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-bold"
+            style={{ borderColor: starred ? C.xp : C.border, backgroundColor: starred ? `${C.xp}1A` : C.surface, color: starred ? C.xp : C.muted, opacity: starLocked ? 0.5 : 1, ...SG }}>
+            <Star size={14} fill={starred ? C.xp : 'none'} /> {starLocked ? `Unlocks at level ${STAR_UNLOCK_LEVEL}` : starred ? 'Starred' : 'Star'}
+          </button>
+        )}
       </div>
 
       <div className="flex flex-1 flex-col items-center px-5 py-4">
@@ -4141,6 +4193,11 @@ function ExerciseDetailModal({ exercise, onClose, blocked, onToggleBlock }: { ex
               </ol>
             </div>
           )}
+          {onToggleStar && !starLocked && (
+            <p className="mt-4 text-center text-[11px]" style={{ color: C.muted }}>
+              {starred ? 'Starred exercises show up more often in your generated workouts.' : 'Star exercises you like and they show up more often in your workouts.'}
+            </p>
+          )}
           {onToggleBlock && (
             <div className="mt-8 border-t pt-5" style={{ borderColor: C.border }}>
               <button onClick={onToggleBlock} className="flex w-full items-center justify-center gap-2 rounded-2xl border py-3.5 text-sm font-bold"
@@ -4158,8 +4215,9 @@ function ExerciseDetailModal({ exercise, onClose, blocked, onToggleBlock }: { ex
   );
 }
 
-function ExercisesScreen({ exercises, blockedIds, onToggleBlock }: { exercises: Exercise[]; blockedIds: Set<string>; onToggleBlock: (ex: Exercise) => void }) {
+function ExercisesScreen({ exercises, blockedIds, onToggleBlock, starredIds, onToggleStar, starLocked }: { exercises: Exercise[]; blockedIds: Set<string>; onToggleBlock: (ex: Exercise) => void; starredIds: Set<string>; onToggleStar: (ex: Exercise) => void; starLocked: boolean }) {
   const [showBlocked, setShowBlocked] = useState(false);
+  const [showStarred, setShowStarred] = useState(false);
   const [search, setSearch] = useState('');
   const [cat, setCat] = useState('all');
   const [equipFilter, setEquipFilter] = useState<'all' | Equipment>('all');
@@ -4170,9 +4228,11 @@ function ExercisesScreen({ exercises, blockedIds, onToggleBlock }: { exercises: 
     const matchesEquip = equipFilter === 'all' || e.equipment.includes(equipFilter);
     const matchesSearch = e.name.toLowerCase().includes(search.toLowerCase());
     const matchesBlocked = !showBlocked || blockedIds.has(e.id);
-    return matchesCat && matchesEquip && matchesSearch && matchesBlocked;
+    const matchesStarred = !showStarred || starredIds.has(e.id);
+    return matchesCat && matchesEquip && matchesSearch && matchesBlocked && matchesStarred;
   });
   const blockedCount = exercises.filter((e) => blockedIds.has(e.id)).length;
+  const starredCount = exercises.filter((e) => starredIds.has(e.id)).length;
 
   return (
     <div className="min-h-screen pb-24" style={{ backgroundColor: C.bg }}>
@@ -4198,12 +4258,20 @@ function ExercisesScreen({ exercises, blockedIds, onToggleBlock }: { exercises: 
             className="w-full bg-transparent text-sm outline-none" style={{ color: C.text }} />
         </div>
       </div>
-      {(blockedCount > 0 || showBlocked) && (
-        <div className="mt-3 px-5">
-          <button onClick={() => setShowBlocked((v) => !v)} className="flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold"
-            style={{ borderColor: showBlocked ? C.xp : C.border, backgroundColor: showBlocked ? `${C.xp}1A` : 'transparent', color: showBlocked ? C.xp : C.muted, ...SG }}>
-            <Ban size={13} /> Blocked ({blockedCount})
-          </button>
+      {(blockedCount > 0 || showBlocked || starredCount > 0 || showStarred) && (
+        <div className="mt-3 flex items-center gap-2 px-5">
+          {(starredCount > 0 || showStarred) && (
+            <button onClick={() => setShowStarred((v) => !v)} className="flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold"
+              style={{ borderColor: showStarred ? C.xp : C.border, backgroundColor: showStarred ? `${C.xp}1A` : 'transparent', color: showStarred ? C.xp : C.muted, ...SG }}>
+              <Star size={13} /> Starred ({starredCount})
+            </button>
+          )}
+          {(blockedCount > 0 || showBlocked) && (
+            <button onClick={() => setShowBlocked((v) => !v)} className="flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold"
+              style={{ borderColor: showBlocked ? C.xp : C.border, backgroundColor: showBlocked ? `${C.xp}1A` : 'transparent', color: showBlocked ? C.xp : C.muted, ...SG }}>
+              <Ban size={13} /> Blocked ({blockedCount})
+            </button>
+          )}
         </div>
       )}
       <div className="mt-3 flex gap-2 overflow-x-auto px-5 pb-1" style={{ scrollbarWidth: 'none' }}>
@@ -4216,7 +4284,7 @@ function ExercisesScreen({ exercises, blockedIds, onToggleBlock }: { exercises: 
       </div>
       <div className="mt-3 flex flex-col gap-2 px-5">
         {filtered.length === 0 ? (
-          <p className="py-8 text-center text-sm" style={{ color: C.muted }}>{showBlocked ? 'No blocked exercises.' : 'No exercises found.'}</p>
+          <p className="py-8 text-center text-sm" style={{ color: C.muted }}>{showBlocked ? 'No blocked exercises.' : showStarred ? 'No starred exercises.' : 'No exercises found.'}</p>
         ) : (
           filtered.map((ex) => {
             return (
@@ -4227,6 +4295,7 @@ function ExercisesScreen({ exercises, blockedIds, onToggleBlock }: { exercises: 
                   <p className="flex items-center gap-1.5 font-bold" style={{ color: C.text, ...SG }}>
                     <span className="truncate">{ex.name}</span>
                     {blockedIds.has(ex.id) && <Ban size={13} style={{ color: C.muted }} className="shrink-0" />}
+                    {starredIds.has(ex.id) && <Star size={13} fill={C.xp} style={{ color: C.xp }} className="shrink-0" />}
                   </p>
                   <div className="mt-1 flex items-center gap-2">
                     <span className="text-[10px] font-medium uppercase tracking-wider rounded-full px-2 py-0.5" style={{ color: C.muted, border: `1px solid ${C.border}` }}>
@@ -4249,7 +4318,8 @@ function ExercisesScreen({ exercises, blockedIds, onToggleBlock }: { exercises: 
           })
         )}
       </div>
-      {selected && <ExerciseDetailModal exercise={selected} onClose={() => setSelected(null)} blocked={blockedIds.has(selected.id)} onToggleBlock={() => onToggleBlock(selected)} />}
+      {selected && <ExerciseDetailModal exercise={selected} onClose={() => setSelected(null)} blocked={blockedIds.has(selected.id)} onToggleBlock={() => onToggleBlock(selected)}
+        starred={starredIds.has(selected.id)} onToggleStar={() => onToggleStar(selected)} starLocked={starLocked} />}
     </div>
   );
 }
@@ -6520,6 +6590,38 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
       ? await supabase.from('user_blocked_exercises').delete().eq('user_id', user.id).eq('exercise_id', ex.id)
       : await supabase.from('user_blocked_exercises').insert({ user_id: user.id, exercise_id: ex.id });
     if (error && !(error.code === '23505')) apply(wasBlocked); // 23505 = already blocked, fine
+    // An exercise cannot be both blocked and starred: blocking removes the star.
+    if (!wasBlocked && !error && starredIds.has(ex.id)) {
+      setStarredIds((prev) => { const n = new Set(prev); n.delete(ex.id); return n; });
+      await supabase.from('user_starred_exercises').delete().eq('user_id', user.id).eq('exercise_id', ex.id);
+    }
+  };
+  // Starred exercises (unlocked at Quest level 4): picked more often in generated workouts.
+  const starUnlocked = stats.level >= STAR_UNLOCK_LEVEL;
+  const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
+  React.useEffect(() => {
+    let cancelled = false;
+    createClient().from('user_starred_exercises').select('exercise_id').limit(1000).then(({ data, error }) => {
+      if (!cancelled && !error && data) setStarredIds(new Set(data.map((r: { exercise_id: string }) => r.exercise_id)));
+    });
+    return () => { cancelled = true; };
+  }, []);
+  const toggleStar = async (ex: Exercise) => {
+    if (!starUnlocked) return;
+    const wasStarred = starredIds.has(ex.id);
+    if (!wasStarred && starredIds.size >= MAX_STARRED) return;
+    const apply = (starred: boolean) => setStarredIds((prev) => { const n = new Set(prev); if (starred) n.add(ex.id); else n.delete(ex.id); return n; });
+    apply(!wasStarred);
+    const supabase = createClient();
+    // An exercise cannot be both blocked and starred: starring removes the block.
+    if (!wasStarred && blockedIds.has(ex.id)) {
+      setBlockedIds((prev) => { const n = new Set(prev); n.delete(ex.id); return n; });
+      await supabase.from('user_blocked_exercises').delete().eq('user_id', user.id).eq('exercise_id', ex.id);
+    }
+    const { error } = wasStarred
+      ? await supabase.from('user_starred_exercises').delete().eq('user_id', user.id).eq('exercise_id', ex.id)
+      : await supabase.from('user_starred_exercises').insert({ user_id: user.id, exercise_id: ex.id });
+    if (error && !(error.code === '23505')) apply(wasStarred); // 23505 = already starred, fine
   };
   const [allTimeStats, setAllTimeStats] = useState(initialAllTimeStats);
   const [exercises, setExercises] = useState(initialExercises);
@@ -6885,7 +6987,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     <>
       <GlobalStyle />
       <PageTransition screenKey={screen}>
-        <GeneratorScreen exercises={exercises.filter((e) => !blockedIds.has(e.id))} totalExerciseCount={totalExerciseCount} records={exerciseRecords} onBack={() => setScreen('tab')}
+        <GeneratorScreen exercises={exercises.filter((e) => !blockedIds.has(e.id))} totalExerciseCount={totalExerciseCount} records={exerciseRecords} userId={user.id} starredIds={starUnlocked ? starredIds : new Set<string>()} onBack={() => setScreen('tab')}
           onStart={(exs, durationMinutes, pool, mixed) => {
             setSessionExercises(exs);
             setSessionMixed(mixed);
@@ -6910,7 +7012,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
       <GlobalStyle />
       <PageTransition screenKey={screen}>
         <WorkoutScreen exercises={sessionExercises} pool={sessionPool} userId={user.id} durationMinutes={sessionDurationMinutes} mixed={sessionMixed} records={exerciseRecords}
-          blockedIds={blockedIds} onToggleBlock={toggleBlock}
+          blockedIds={blockedIds} onToggleBlock={toggleBlock} starredIds={starredIds} onToggleStar={toggleStar} starLocked={!starUnlocked}
           onBack={() => setScreen('tab')} onFinish={handleFinish} />
       </PageTransition>
     </>
@@ -6961,7 +7063,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
   else if (tab === 'tests') content = <TestsScreen tests={fitnessTests} results={fitnessResults} level={stats.level} available={testsAvailable} newIds={newTests.map((t) => t.id)}
     onOpen={(t) => { setSelectedTestId(t.id); setScreen('test'); }}
     premiumLocked={premiumLocked} onLockedTap={() => setLockModalFeature('Fitness Tests')} onEnterCode={() => setShowCodeModal(true)} />;
-  else if (tab === 'exercises') content = <ExercisesScreen exercises={exercises} blockedIds={blockedIds} onToggleBlock={toggleBlock} />;
+  else if (tab === 'exercises') content = <ExercisesScreen exercises={exercises} blockedIds={blockedIds} onToggleBlock={toggleBlock} starredIds={starredIds} onToggleStar={toggleStar} starLocked={!starUnlocked} />;
   else if (tab === 'stats') content = <StatsScreen stats={stats} records={exerciseRecords} exercises={exercises} />;
   else if (tab === 'profile') content = <ProfileMenu onPremiumChange={setPremium} userId={user.id} username={user.username} level={stats.level} onLogout={handleLogout} onPrivacy={() => router.push('/privacy')} onTerms={() => router.push('/terms')} onInstall={() => setShowInstallGuide(true)} installed={installed} allTimeStats={allTimeStats} />;
 
