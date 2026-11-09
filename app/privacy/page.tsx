@@ -86,16 +86,18 @@ export default async function PrivacyPage() {
           <ul className="list-disc pl-5 space-y-1">
             <li>If you use Profile → Give Feedback: an optional star rating (1–5), the text you write, the date, and your level at the time. It is linked to your account, is not public, and can only be read by the app owner. You can send one feedback per level. To have your feedback deleted, email us at pontus.melin@gmail.com. Please do not include sensitive personal information in your feedback.</li>
           </ul>
-          <p style={{ color: C.text, fontWeight: 600 }} className="pt-2">2.5 Access Codes</p>
+          <p style={{ color: C.text, fontWeight: 600 }} className="pt-2">2.5 Access Codes and Purchases</p>
           <ul className="list-disc pl-5 space-y-1">
             <li>If you redeem an access code under Profile → Access code: which code you used, when, and how long your Premium access lasts. This is linked to your account and removed when you delete your account (the code itself stays marked as used). Failed attempts are saved temporarily (up to one day) to limit guessing.</li>
+            <li>If you open a link or QR code that contains an access code (for example from a founder pass card), the App keeps that code in your device&apos;s local browser storage until you have used it.</li>
+            <li>If you buy Premium, the payment is handled by Stripe. We never see or store your card details. From Stripe we receive and store a payment reference, the amount and currency, the time, the email address you used at checkout, and the account the purchase was made from, so that we can give you Premium and keep our accounting records. Stripe handles the payment data it collects under its own privacy policy.</li>
           </ul>
           <p style={{ color: C.text, fontWeight: 600 }} className="pt-2">2.6 Information We Do Not Currently Collect</p>
           <ul className="list-disc pl-5 space-y-1">
             <li>We do not use third-party advertising trackers.</li>
             <li>We do not collect precise location data.</li>
             <li>We do not access your device&apos;s camera, microphone, or contacts.</li>
-            <li>We do not currently process payments (this section will be updated if paid features are introduced).</li>
+            <li>We do not see or store your card or bank details. Payments are handled by Stripe (see sections 2.5 and 4).</li>
             <li>The App&apos;s BMI calculator (age, gender, height, weight) runs entirely on your device. Those values are never sent to our servers. To save you re-typing them, the App remembers them in your device&apos;s local browser storage until you change them or tap &quot;Clear saved&quot; (or clear your browser data).</li>
           </ul>
         </Section>
@@ -110,6 +112,7 @@ export default async function PrivacyPage() {
             <li>Maintain the security and functionality of the App</li>
             <li>Communicate with you about your account (e.g., password resets)</li>
             <li>Read and act on the feedback you choose to send, to improve the App</li>
+            <li>Give you Premium after you redeem a code or buy it, help you if something goes wrong with a purchase, and keep the accounting records we are required to keep</li>
           </ul>
           <p>We do not sell your personal data, and we do not share it with third parties for advertising or marketing purposes.</p>
         </Section>
@@ -121,6 +124,18 @@ export default async function PrivacyPage() {
             practices, available at{' '}
             <a href="https://supabase.com/privacy" className="underline" style={{ color: C.xp }} target="_blank" rel="noopener noreferrer">
               supabase.com/privacy
+            </a>.
+          </p>
+          <p>
+            The App is hosted by Vercel, which processes the technical data needed to deliver the App to you (such as your
+            IP address in server logs) on our behalf.
+          </p>
+          <p>
+            Payments for Premium are handled by Stripe. Through its Managed Payments service, Stripe (shown as Link on
+            your receipt) is the seller of record, takes the payment and sends your receipt. Stripe is responsible for the
+            payment data it collects at checkout, under its own privacy policy at{' '}
+            <a href="https://stripe.com/privacy" className="underline" style={{ color: C.xp }} target="_blank" rel="noopener noreferrer">
+              stripe.com/privacy
             </a>.
           </p>
           <p>We take reasonable technical measures (such as access controls and encryption in transit) to protect your data, but no system can guarantee complete security.</p>
@@ -148,6 +163,11 @@ export default async function PrivacyPage() {
             We retain your account and fitness data for as long as your account is active. If you delete your
             account, we will delete or anonymize your personal data within 90 days, except where we are required
             to retain it for legal or security purposes.
+          </p>
+          <p>
+            Records of Premium purchases (payment reference, amount, time and the email address used at checkout) are kept
+            for as long as the accounting rules that apply to us require. When you delete your account, the link between the
+            record and your account is removed, but the record itself is kept for that reason.
           </p>
           <p>
             Feedback you send is kept for up to 12 months and is then deleted. You can ask us to delete it at any time,

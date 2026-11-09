@@ -122,7 +122,7 @@ export default async function TermsPage() {
             We may transfer or assign these Terms, together with our rights and obligations under them and the operation
             of WODXP, to another person or company, for example in connection with a sale, merger, reorganization, or
             transfer of the business or its assets. The new owner will take over our responsibilities to you under these
-            Terms and the Privacy Policy.
+            Terms and the Privacy Policy, including Premium access you have paid for or received with a code.
           </p>
           <p>
             We will tell you in advance through the App or by email. You may close your account before the transfer takes
@@ -146,7 +146,52 @@ export default async function TermsPage() {
           </p>
         </Section>
 
-        <Section title="11. Contact">
+        <Section title="11. Premium, Access Codes and Payments">
+          <p>
+            WODXP is free to use. Premium is an optional upgrade that unlocks Fitness Tests and the 15 Classic Challenges.
+            Workouts, XP, levels, Boss battles, streaks and Friends stay free, and the history you have built in Premium
+            features stays readable after Premium ends.
+          </p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>
+              <span style={{ color: C.text }}>Price and length.</span> Premium for 12 months costs 49 SEK including VAT, paid
+              once. It does not renew automatically. The price you see at checkout is the price you pay.
+            </li>
+            <li>
+              <span style={{ color: C.text }}>When it starts.</span> Premium is switched on in your account when the payment is
+              confirmed, usually within seconds. The 12 months count from that day, or from the end of your current Premium if
+              it is still active.
+            </li>
+            <li>
+              <span style={{ color: C.text }}>Who handles the payment.</span> Payments are handled by Stripe. Through its
+              Managed Payments service, Stripe (shown as Link on your receipt and card statement) is the seller of record
+              for the purchase. It takes the payment, handles VAT and sends your receipt and invoice. We never see or store
+              your card details. We receive only what we need to give you Premium (see the Privacy Policy).
+            </li>
+            <li>
+              <span style={{ color: C.text }}>Refunds.</span> You can ask for a full refund within 14 days of the purchase, no
+              reason needed. Email us at pontus.melin@gmail.com or contact Link support from your receipt. Your rights as a
+              consumer under mandatory law are not affected.
+            </li>
+            <li>
+              <span style={{ color: C.text }}>Problems.</span> If you have paid and Premium has not appeared after a few
+              minutes, email us from the address you used at checkout and we will fix it.
+            </li>
+            <li>
+              <span style={{ color: C.text }}>Changes.</span> We may add features to Premium. If we remove a Premium feature
+              during a period you have paid for, you can ask us for a refund of the unused part.
+            </li>
+          </ul>
+          <p>
+            <span style={{ color: C.text }}>Access codes.</span> Some people receive an access code, for example on a founder
+            pass card or as an invitation. A code gives Premium for the number of months stated for it, can be used once,
+            may have a date after which it can no longer be redeemed, has no cash value and may not be sold. Codes marked as
+            lasting &quot;as long as WODXP is operated&quot; give Premium for as long as we run the service. We may cancel a code
+            that has been misused. New months from a code are added after your current Premium ends.
+          </p>
+        </Section>
+
+        <Section title="12. Contact">
           <p style={{ color: C.text }}>Pontus Melin</p>
           <p>Email: pontus.melin@gmail.com</p>
         </Section>
