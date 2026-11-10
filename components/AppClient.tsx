@@ -4915,12 +4915,20 @@ function premiumLabel(p: PremiumStatus | null): string {
 // button is hidden, so nothing half-working is shown. The buyer's user id travels with the link
 // (client_reference_id) and the Stripe webhook uses it to give Premium to the right account.
 const PREMIUM_PAYMENT_LINK = process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK ?? '';
+const PREMIUM_BEFORE_KEY = 'wodxp_premium_before_checkout';
 
 async function openPremiumCheckout(): Promise<boolean> {
   if (!PREMIUM_PAYMENT_LINK) return false;
   const { data } = await createClient().auth.getUser();
   const user = data?.user;
   if (!user) return false;
+  // Remember the Premium end date from before the purchase. The Stripe webhook can finish before
+  // the user is sent back to the app, so the thanks box compares against this saved value.
+  try {
+    const { data: before } = await createClient().rpc('get_my_premium');
+    const ms = before?.active ? (before.lifetime ? Infinity : before.premium_until ? new Date(before.premium_until).getTime() : 0) : 0;
+    window.localStorage.setItem(PREMIUM_BEFORE_KEY, JSON.stringify({ ms: ms === Infinity ? 'inf' : ms, at: Date.now() }));
+  } catch { /* storage or network unavailable: the thanks box falls back to "active = done" */ }
   const url = new URL(PREMIUM_PAYMENT_LINK);
   url.searchParams.set('client_reference_id', user.id);
   if (user.email) url.searchParams.set('prefilled_email', user.email);
@@ -4971,8 +4979,18 @@ function PremiumThanksModal({ onClose, onActive }: { onClose: () => void; onActi
     const supabase = createClient();
     const untilMs = (p: PremiumStatus | null) => (p?.lifetime ? Infinity : p?.premium_until ? new Date(p.premium_until).getTime() : 0);
     (async () => {
-      const { data: before } = await supabase.rpc('get_my_premium');
-      const beforeMs = before?.active ? untilMs(before as PremiumStatus) : 0;
+      // Premium end date saved just before the checkout (see openPremiumCheckout). Reading it from the
+      // database here would be too late: the webhook has usually already run. Without a saved value
+      // (other device, cleared storage) any active Premium counts as done.
+      let beforeMs = 0;
+      try {
+        const raw = window.localStorage.getItem(PREMIUM_BEFORE_KEY);
+        window.localStorage.removeItem(PREMIUM_BEFORE_KEY);
+        const saved = raw ? JSON.parse(raw) : null;
+        if (saved && typeof saved.at === 'number' && Date.now() - saved.at < 6 * 3600 * 1000) {
+          beforeMs = saved.ms === 'inf' ? Infinity : Number(saved.ms) || 0;
+        }
+      } catch { /* ignore */ }
       for (let i = 0; i < 15 && !cancelled; i++) {
         await new Promise((r) => setTimeout(r, i === 0 ? 1500 : 2000));
         if (cancelled) return;
