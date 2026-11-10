@@ -5,7 +5,7 @@ export const MIN_AGE = 16;
 
 // Bump when /terms or /privacy change in a way users must accept again.
 // Stored in the user's auth metadata together with the acceptance time.
-export const TERMS_VERSION = '2026-11-09';
+export const TERMS_VERSION = '2026-11-10';
 
 export const LEGAL_LAST_UPDATED = 'November 10, 2026';
 
