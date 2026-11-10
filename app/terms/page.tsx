@@ -148,9 +148,9 @@ export default async function TermsPage() {
 
         <Section title="11. Premium, Access Codes and Payments">
           <p>
-            WODXP is free to use. Premium is an optional upgrade that unlocks Fitness Tests and the 15 Classic Challenges.
-            Workouts, XP, levels, Boss battles, streaks and Friends stay free, and the history you have built in Premium
-            features stays readable after Premium ends.
+            WODXP is free to use. Premium is an optional upgrade that unlocks Fitness Tests, the 15 Classic Challenges and progress charts for
+            your exercises. Workouts, XP, levels, Boss battles, streaks and Friends stay free, and the history you have built in
+            Premium features stays readable after Premium ends.
           </p>
           <ul className="list-disc pl-5 space-y-1">
             <li>
