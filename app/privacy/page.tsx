@@ -75,6 +75,7 @@ export default async function PrivacyPage() {
             <li>Experience points (XP), levels, and streaks</li>
             <li>Boss challenge attempts and results (if applicable)</li>
             <li>Exercises you choose to block (so they are left out of your workouts). Only which exercises, not why. It is linked to your account, you can unblock under Exercises, and it is removed when you delete your account. We may look at the total number of blocks per exercise, without user names, to improve the exercise library.</li>
+            <li>Exercises you choose to star (from level 4), so that they show up more often in your workouts. Only which exercises. It is linked to your account, you can remove a star at any time, and it is removed when you delete your account. We may look at the total number of stars per exercise, without user names, to improve the exercise library.</li>
           </ul>
           <p style={{ color: C.text, fontWeight: 600 }} className="pt-2">2.3 Social Data (if you use social features)</p>
           <ul className="list-disc pl-5 space-y-1">

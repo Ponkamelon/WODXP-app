@@ -7,7 +7,7 @@ export const MIN_AGE = 16;
 // Stored in the user's auth metadata together with the acceptance time.
 export const TERMS_VERSION = '2026-11-09';
 
-export const LEGAL_LAST_UPDATED = 'November 9, 2026';
+export const LEGAL_LAST_UPDATED = 'November 10, 2026';
 
 // Year-of-birth check. Only the year is asked for, so a person who turns
 // MIN_AGE later in the year of birthYear + MIN_AGE passes a few months early.
