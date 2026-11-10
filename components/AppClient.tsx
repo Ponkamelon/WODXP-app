@@ -85,7 +85,7 @@ function xpDerivedLevel(xpTotal: number): number {
 // ─── Exercise records (times done + best weight / reps, derived from workout_exercises) ───
 interface ExerciseRecord {
   times: number; maxWeight: number; repsAtMaxWeight: number; maxReps: number;
-  lastDate: string; recent: { weight: number; reps: number }[]; // oldest → newest
+  lastDate: string; recent: { weight: number; reps: number; date: string }[]; // oldest → newest
 }
 interface SessionExerciseSummary {
   id: string; name: string; weight: number; reps: number;
@@ -100,7 +100,7 @@ function buildExerciseRecords(rows: { exercise_id: string; weight: number; reps:
     if (r.weight > rec.maxWeight || (r.weight === rec.maxWeight && r.reps > rec.repsAtMaxWeight)) { rec.maxWeight = r.weight; rec.repsAtMaxWeight = r.reps; }
     if (r.reps > rec.maxReps) rec.maxReps = r.reps;
     rec.lastDate = r.completed_at;
-    rec.recent.push({ weight: r.weight, reps: r.reps });
+    rec.recent.push({ weight: r.weight, reps: r.reps, date: r.completed_at });
   }
   return out;
 }
@@ -4325,15 +4325,17 @@ function ExercisesScreen({ exercises, blockedIds, onToggleBlock, starredIds, onT
 }
 
 /** Bars per exercise: best weight × reps (or best reps for bodyweight), recent trend, and a nudge to progress. */
-function ExerciseProgress({ records, exercises }: { records: Record<string, ExerciseRecord>; exercises: Exercise[] }) {
+function ExerciseProgress({ records, exercises, starredIds, premiumLocked, onLocked }: { records: Record<string, ExerciseRecord>; exercises: Exercise[]; starredIds: Set<string>; premiumLocked: boolean; onLocked: () => void }) {
   const [filter, setFilter] = useState<'all' | 'kettlebell' | 'dumbbell' | 'bodyweight'>('all');
+  const [chart, setChart] = useState<{ ex: Exercise; rec: ExerciseRecord; color: string } | null>(null);
   const [showAll, setShowAll] = useState(false);
 
   const rows = exercises
     .filter((ex) => records[ex.id])
     .filter((ex) => filter === 'all' || pickPrimaryEquipment(ex.equipment) === filter)
     .map((ex) => ({ ex, rec: records[ex.id], eq: pickPrimaryEquipment(ex.equipment) }))
-    .sort((a, b) => b.rec.times - a.rec.times || a.ex.name.localeCompare(b.ex.name));
+    // Starred exercises first, then the ones done most often.
+    .sort((a, b) => Number(starredIds.has(b.ex.id)) - Number(starredIds.has(a.ex.id)) || b.rec.times - a.rec.times || a.ex.name.localeCompare(b.ex.name));
   const visible = showAll ? rows : rows.slice(0, 8);
   const maxWeight = Math.max(1, ...rows.map((r) => r.rec.maxWeight));
   const maxRepsBw = Math.max(1, ...rows.filter((r) => r.rec.maxWeight === 0).map((r) => r.rec.maxReps));
@@ -4366,8 +4368,8 @@ function ExerciseProgress({ records, exercises }: { records: Record<string, Exer
           Finish a workout and your exercises show up here.
         </div>
       ) : (
-        <div className="flex flex-col gap-3 rounded-2xl border p-4" style={{ borderColor: C.border, backgroundColor: C.surface }}>
-          {visible.map(({ ex, rec, eq }) => {
+        <div className="flex flex-col rounded-2xl border p-4" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+          {visible.map(({ ex, rec, eq }, idx) => {
             const color = EQUIPMENT_COLORS[eq];
             const weighted = rec.maxWeight > 0;
             const pct = Math.max(4, Math.round((weighted ? rec.maxWeight / maxWeight : rec.maxReps / maxRepsBw) * 100));
@@ -4375,10 +4377,19 @@ function ExerciseProgress({ records, exercises }: { records: Record<string, Exer
             const trend = rec.recent.slice(-6).map((r) => (weighted ? r.weight : r.reps));
             const trendMax = Math.max(1, ...trend);
             return (
-              <div key={ex.id}>
+              <button key={ex.id} onClick={() => (premiumLocked ? onLocked() : setChart({ ex, rec, color }))}
+                aria-label={`Show progress chart for ${ex.name}`}
+                className="block w-full text-left active:opacity-70"
+                style={idx > 0 ? { marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.border}` } : undefined}>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="truncate text-sm font-bold" style={{ color: C.text, ...SG }}>{ex.name}</span>
-                  {tag && <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ backgroundColor: `${C.xp}22`, color: C.xp, ...MO }}>{tag}</span>}
+                  <span className="flex min-w-0 items-center gap-1.5 text-sm font-bold" style={{ color: C.text, ...SG }}>
+                    {starredIds.has(ex.id) && <Star size={13} fill={C.xp} style={{ color: C.xp }} className="shrink-0" />}
+                    <span className="truncate">{ex.name}</span>
+                  </span>
+                  <span className="flex shrink-0 items-center gap-1.5">
+                    {tag && <span className="rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ backgroundColor: `${C.xp}22`, color: C.xp, ...MO }}>{tag}</span>}
+                    <ChevronRight size={16} style={{ color: C.muted }} />
+                  </span>
                 </div>
                 <div className="mt-1.5 flex items-center gap-3">
                   <div className="h-2.5 flex-1 overflow-hidden rounded-full" style={{ backgroundColor: C.raised }}>
@@ -4394,21 +4405,114 @@ function ExerciseProgress({ records, exercises }: { records: Record<string, Exer
                     ))}
                   </div>
                 </div>
-              </div>
+              </button>
             );
           })}
           {rows.length > 8 && (
-            <button onClick={() => setShowAll((v) => !v)} className="rounded-xl border py-2 text-xs font-semibold" style={{ borderColor: C.border, color: C.muted, ...SG }}>
+            <button onClick={() => setShowAll((v) => !v)} className="mt-3 rounded-xl border py-2 text-xs font-semibold" style={{ borderColor: C.border, color: C.muted, ...SG }}>
               {showAll ? 'Show fewer' : `Show all ${rows.length}`}
             </button>
           )}
         </div>
       )}
+      {chart && <ExerciseChartModal exercise={chart.ex} rec={chart.rec} color={chart.color} onClose={() => setChart(null)} />}
     </div>
   );
 }
 
-function StatsScreen({ stats, records, exercises }: { stats: UserStats; records: Record<string, ExerciseRecord>; exercises: Exercise[] }) {
+/** Pop-up with a line chart of weight and reps over time for one exercise (Premium). */
+function ExerciseChartModal({ exercise, rec, color, onClose }: { exercise: Exercise; rec: ExerciseRecord; color: string; onClose: () => void }) {
+  const weighted = rec.maxWeight > 0;
+  const [metric, setMetric] = useState<'weight' | 'reps'>(weighted ? 'weight' : 'reps');
+  const [period, setPeriod] = useState<'1M' | '3M' | 'all'>('all');
+  const now = Date.now();
+  const since = period === '1M' ? now - 30 * 86400000 : period === '3M' ? now - 91 * 86400000 : 0;
+  const pts = rec.recent
+    .map((r) => ({ t: new Date(r.date).getTime(), v: metric === 'weight' ? r.weight : r.reps }))
+    .filter((p) => Number.isFinite(p.t) && p.t >= since);
+  const unit = metric === 'weight' ? 'kg' : 'reps';
+  const fmtDate = (t: number) => new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+
+  const W = 300, H = 170, L = 34, R = 10, T = 12, B = 22;
+  const vals = pts.map((p) => p.v);
+  const vMax = vals.length ? Math.max(...vals) : 0;
+  const vMin = vals.length ? Math.min(...vals) : 0;
+  const pad = vMax === vMin ? Math.max(1, vMax * 0.1) : (vMax - vMin) * 0.15;
+  const yLo = Math.max(0, vMin - pad), yHi = vMax + pad;
+  const tMin = pts.length ? pts[0].t : 0, tMax = pts.length ? pts[pts.length - 1].t : 1;
+  const x = (t: number) => (tMax === tMin ? (L + W - R) / 2 : L + ((t - tMin) / (tMax - tMin)) * (W - L - R));
+  const y = (v: number) => T + (1 - (v - yLo) / (yHi - yLo || 1)) * (H - T - B);
+  const path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(p.t).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ');
+  const bestIdx = pts.length ? pts.reduce((bi, p, i) => (p.v >= pts[bi].v ? i : bi), 0) : -1;
+  const first = pts[0], last = pts[pts.length - 1];
+  const delta = first && last ? last.v - first.v : 0;
+  const fmtV = (v: number) => `${Math.round(v * 10) / 10}`;
+
+  const Chip = ({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) => (
+    <button onClick={onClick} className="rounded-full border px-3.5 py-1.5 text-xs font-semibold"
+      style={{ borderColor: active ? color : C.border, backgroundColor: active ? `${color}1A` : 'transparent', color: active ? color : C.muted, ...SG }}>{label}</button>
+  );
+
+  return (
+    <SafeModalShell onBackdropClick={onClose}>
+      <div className="w-full max-w-sm rounded-3xl border p-5" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-wider" style={{ color: C.muted }}>Progress</p>
+            <h2 className="text-lg font-bold leading-tight" style={SG}>{exercise.name}</h2>
+          </div>
+          <button onClick={onClose} aria-label="Close" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border" style={{ borderColor: C.border }}>
+            <X size={15} style={{ color: C.muted }} />
+          </button>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex gap-2">
+            {weighted && <Chip label="Weight" active={metric === 'weight'} onClick={() => setMetric('weight')} />}
+            <Chip label="Reps" active={metric === 'reps'} onClick={() => setMetric('reps')} />
+          </div>
+          <div className="flex gap-1.5">
+            {(['1M', '3M', 'all'] as const).map((p) => <Chip key={p} label={p === 'all' ? 'All' : p} active={period === p} onClick={() => setPeriod(p)} />)}
+          </div>
+        </div>
+        {pts.length === 0 ? (
+          <p className="py-10 text-center text-sm" style={{ color: C.muted }}>No sessions in this period.</p>
+        ) : (
+          <>
+            <svg viewBox={`0 0 ${W} ${H}`} className="mt-3 w-full" role="img" aria-label={`${exercise.name} ${unit} over time`}>
+              {[0, 0.5, 1].map((f) => {
+                const gy = T + f * (H - T - B);
+                return <line key={f} x1={L} x2={W - R} y1={gy} y2={gy} stroke={C.border} strokeWidth={0.5} strokeDasharray="2 3" />;
+              })}
+              <text x={L - 5} y={y(vMax) + 3} textAnchor="end" fontSize={9} fill={C.muted}>{fmtV(vMax)}</text>
+              {vMin !== vMax && <text x={L - 5} y={y(vMin) + 3} textAnchor="end" fontSize={9} fill={C.muted}>{fmtV(vMin)}</text>}
+              <text x={L} y={H - 6} textAnchor="start" fontSize={9} fill={C.muted}>{fmtDate(first.t)}</text>
+              {pts.length > 1 && <text x={W - R} y={H - 6} textAnchor="end" fontSize={9} fill={C.muted}>{fmtDate(last.t)}</text>}
+              {pts.length > 1 && <path d={path} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />}
+              {pts.map((p, i) => <circle key={i} cx={x(p.t)} cy={y(p.v)} r={i === bestIdx ? 4.5 : 2.5} fill={i === bestIdx ? color : C.surface} stroke={color} strokeWidth={1.5} />)}
+            </svg>
+            <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-xl border p-2" style={{ borderColor: C.border }}>
+                <p className="text-[10px] uppercase tracking-wider" style={{ color: C.muted }}>Change</p>
+                <p className="mt-0.5 text-sm font-bold" style={{ color: delta > 0 ? C.xp : C.text, ...MO }}>{pts.length > 1 ? `${delta > 0 ? '+' : ''}${fmtV(delta)} ${unit}` : '–'}</p>
+              </div>
+              <div className="rounded-xl border p-2" style={{ borderColor: C.border }}>
+                <p className="text-[10px] uppercase tracking-wider" style={{ color: C.muted }}>Best</p>
+                <p className="mt-0.5 text-sm font-bold" style={{ color, ...MO }}>{fmtV(vMax)} {unit}</p>
+              </div>
+              <div className="rounded-xl border p-2" style={{ borderColor: C.border }}>
+                <p className="text-[10px] uppercase tracking-wider" style={{ color: C.muted }}>Sessions</p>
+                <p className="mt-0.5 text-sm font-bold" style={{ color: C.text, ...MO }}>{pts.length}</p>
+              </div>
+            </div>
+            {pts.length === 1 && <p className="mt-3 text-center text-[11px]" style={{ color: C.muted }}>Do this exercise again and your line appears here.</p>}
+          </>
+        )}
+      </div>
+    </SafeModalShell>
+  );
+}
+
+function StatsScreen({ stats, records, exercises, starredIds, premiumLocked, onLocked }: { stats: UserStats; records: Record<string, ExerciseRecord>; exercises: Exercise[]; starredIds: Set<string>; premiumLocked: boolean; onLocked: () => void }) {
   return (
     <div className="min-h-screen pb-24" style={{ backgroundColor: C.bg }}>
       <header className="px-5 pt-6 pb-4">
@@ -4450,7 +4554,7 @@ function StatsScreen({ stats, records, exercises }: { stats: UserStats; records:
           })}
         </div>
       </div>
-      <ExerciseProgress records={records} exercises={exercises} />
+      <ExerciseProgress records={records} exercises={exercises} starredIds={starredIds} premiumLocked={premiumLocked} onLocked={onLocked} />
     </div>
   );
 }
@@ -7082,7 +7186,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     onOpen={(t) => { setSelectedTestId(t.id); setScreen('test'); }}
     premiumLocked={premiumLocked} onLockedTap={() => setLockModalFeature('Fitness Tests')} onEnterCode={() => setShowCodeModal(true)} />;
   else if (tab === 'exercises') content = <ExercisesScreen exercises={exercises} blockedIds={blockedIds} onToggleBlock={toggleBlock} starredIds={starredIds} onToggleStar={toggleStar} starLocked={!starUnlocked} />;
-  else if (tab === 'stats') content = <StatsScreen stats={stats} records={exerciseRecords} exercises={exercises} />;
+  else if (tab === 'stats') content = <StatsScreen stats={stats} records={exerciseRecords} exercises={exercises} starredIds={starredIds} premiumLocked={premiumLocked} onLocked={() => setLockModalFeature('Progress history')} />;
   else if (tab === 'profile') content = <ProfileMenu onPremiumChange={setPremium} userId={user.id} username={user.username} level={stats.level} onLogout={handleLogout} onPrivacy={() => router.push('/privacy')} onTerms={() => router.push('/terms')} onInstall={() => setShowInstallGuide(true)} installed={installed} allTimeStats={allTimeStats} />;
 
   return (
