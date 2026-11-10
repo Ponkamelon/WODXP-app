@@ -85,22 +85,24 @@ function xpDerivedLevel(xpTotal: number): number {
 // ─── Exercise records (times done + best weight / reps, derived from workout_exercises) ───
 interface ExerciseRecord {
   times: number; maxWeight: number; repsAtMaxWeight: number; maxReps: number;
-  lastDate: string; recent: { weight: number; reps: number; date: string }[]; // oldest → newest
+  lastDate: string; totalVolume: number; // total kg lifted: weight × reps × sets, summed over every logged session
+  recent: { weight: number; reps: number; sets: number; date: string }[]; // oldest → newest
 }
 interface SessionExerciseSummary {
   id: string; name: string; weight: number; reps: number;
   times: number; best: string; flag: 'first' | 'pb' | null;
 }
-function buildExerciseRecords(rows: { exercise_id: string; weight: number; reps: number; completed_at: string }[]): Record<string, ExerciseRecord> {
+function buildExerciseRecords(rows: { exercise_id: string; weight: number; reps: number; sets: number; completed_at: string }[]): Record<string, ExerciseRecord> {
   const sorted = [...rows].sort((a, b) => a.completed_at.localeCompare(b.completed_at));
   const out: Record<string, ExerciseRecord> = {};
   for (const r of sorted) {
-    const rec = out[r.exercise_id] ?? (out[r.exercise_id] = { times: 0, maxWeight: 0, repsAtMaxWeight: 0, maxReps: 0, lastDate: '', recent: [] });
+    const rec = out[r.exercise_id] ?? (out[r.exercise_id] = { times: 0, maxWeight: 0, repsAtMaxWeight: 0, maxReps: 0, lastDate: '', totalVolume: 0, recent: [] });
     rec.times += 1;
     if (r.weight > rec.maxWeight || (r.weight === rec.maxWeight && r.reps > rec.repsAtMaxWeight)) { rec.maxWeight = r.weight; rec.repsAtMaxWeight = r.reps; }
     if (r.reps > rec.maxReps) rec.maxReps = r.reps;
     rec.lastDate = r.completed_at;
-    rec.recent.push({ weight: r.weight, reps: r.reps, date: r.completed_at });
+    rec.totalVolume += r.weight * r.reps * r.sets;
+    rec.recent.push({ weight: r.weight, reps: r.reps, sets: r.sets, date: r.completed_at });
   }
   return out;
 }
@@ -4398,7 +4400,12 @@ function ExerciseProgress({ records, exercises, starredIds, premiumLocked, onLoc
                   <span className="w-20 shrink-0 text-right text-xs font-bold" style={{ color, ...MO }}>{recordBestLabel(rec)}</span>
                 </div>
                 <div className="mt-1.5 flex items-end justify-between">
-                  <span className="text-[10px]" style={{ color: C.muted, ...MO }}>Done {rec.times}× · last {new Date(rec.lastDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</span>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[10px]" style={{ color: C.muted, ...MO }}>Done {rec.times}× · last {new Date(rec.lastDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</span>
+                    {weighted && eq !== 'bodyweight' && rec.totalVolume > 0 && (
+                      <span className="text-[10px] font-bold" style={{ color, ...MO }}>Tot {Math.round(rec.totalVolume).toLocaleString()} kg</span>
+                    )}
+                  </div>
                   <div className="flex h-5 items-end gap-0.5" title={weighted ? 'Weight, last sessions' : 'Reps, last sessions'}>
                     {trend.map((v, i) => (
                       <div key={i} className="w-1.5 rounded-sm" style={{ height: `${Math.max(15, Math.round((v / trendMax) * 100))}%`, backgroundColor: color, opacity: 0.35 + 0.65 * ((i + 1) / trend.length) }} />
@@ -4423,14 +4430,14 @@ function ExerciseProgress({ records, exercises, starredIds, premiumLocked, onLoc
 /** Pop-up with a line chart of weight and reps over time for one exercise (Premium). */
 function ExerciseChartModal({ exercise, rec, color, onClose }: { exercise: Exercise; rec: ExerciseRecord; color: string; onClose: () => void }) {
   const weighted = rec.maxWeight > 0;
-  const [metric, setMetric] = useState<'weight' | 'reps'>(weighted ? 'weight' : 'reps');
+  const [metric, setMetric] = useState<'weight' | 'reps' | 'volume'>(weighted ? 'weight' : 'reps');
   const [period, setPeriod] = useState<'1M' | '3M' | 'all'>('all');
   const now = Date.now();
   const since = period === '1M' ? now - 30 * 86400000 : period === '3M' ? now - 91 * 86400000 : 0;
   const pts = rec.recent
-    .map((r) => ({ t: new Date(r.date).getTime(), v: metric === 'weight' ? r.weight : r.reps }))
+    .map((r) => ({ t: new Date(r.date).getTime(), v: metric === 'weight' ? r.weight : metric === 'volume' ? r.weight * r.reps * r.sets : r.reps }))
     .filter((p) => Number.isFinite(p.t) && p.t >= since);
-  const unit = metric === 'weight' ? 'kg' : 'reps';
+  const unit = metric === 'reps' ? 'reps' : 'kg';
   const fmtDate = (t: number) => new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 
   const W = 300, H = 170, L = 34, R = 10, T = 12, B = 22;
@@ -4469,6 +4476,7 @@ function ExerciseChartModal({ exercise, rec, color, onClose }: { exercise: Exerc
           <div className="flex gap-2">
             {weighted && <Chip label="Weight" active={metric === 'weight'} onClick={() => setMetric('weight')} />}
             <Chip label="Reps" active={metric === 'reps'} onClick={() => setMetric('reps')} />
+            {weighted && <Chip label="Volume" active={metric === 'volume'} onClick={() => setMetric('volume')} />}
           </div>
           <div className="flex gap-1.5">
             {(['1M', '3M', 'all'] as const).map((p) => <Chip key={p} label={p === 'all' ? 'All' : p} active={period === p} onClick={() => setPeriod(p)} />)}
@@ -6787,14 +6795,14 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     const supabase = createClient();
     const { data, error } = await supabase
       .from('workout_exercises')
-      .select('exercise_id, weight, reps, workout_sessions!inner(completed_at, status)')
+      .select('exercise_id, weight, reps, sets, workout_sessions!inner(completed_at, status)')
       .eq('completed', true)
       .eq('workout_sessions.status', 'completed')
       .limit(5000);
     if (error || !data) return exerciseRecords;
     const rows = data.map((r: any) => {
       const sess = Array.isArray(r.workout_sessions) ? r.workout_sessions[0] : r.workout_sessions;
-      return { exercise_id: r.exercise_id as string, weight: Number(r.weight) || 0, reps: Number(r.reps) || 0, completed_at: (sess?.completed_at as string) ?? '' };
+      return { exercise_id: r.exercise_id as string, weight: Number(r.weight) || 0, reps: Number(r.reps) || 0, sets: Math.max(1, Number(r.sets) || 1), completed_at: (sess?.completed_at as string) ?? '' };
     });
     const next = buildExerciseRecords(rows);
     setExerciseRecords(next);
