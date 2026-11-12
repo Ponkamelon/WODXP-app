@@ -25,6 +25,7 @@ interface UserStats {
   xp_strength: number; xp_mobility: number; xp_conditioning: number;
   level_strength: number; level_mobility: number; level_conditioning: number;
   current_streak: number; longest_streak: number; streak_freeze_count: number;
+  onboarding_seen_at?: string | null;
 }
 interface Exercise {
   id: string; name: string; category: ExerciseCategory; difficulty: string;
@@ -3943,6 +3944,325 @@ function MonthlyRecapModal({ summary, username, premiumLocked, onClose }: {
   );
 }
 
+// ─── Onboarding carousel (backlog 14) ─────────────────────────────────────────
+// Shown once per account (user_stats.onboarding_seen_at, set by mark_onboarding_seen) and
+// reopenable from Profile → "How WODXP works". Each page can also be shared as a story image.
+interface OnboardingPage { key: string; emoji: string; title: string; text: string; color: string; premium?: boolean }
+const ONBOARDING_PAGES: OnboardingPage[] = [
+  { key: 'xp', emoji: '⚡', title: 'Train. Earn XP. Level up.', color: C.xp,
+    text: 'Every workout gives you XP. Collect it, level up and unlock new movements. Train on back-to-back days to build a streak.' },
+  { key: 'workouts', emoji: '🏋️', title: 'Workouts built for you', color: C.xp,
+    text: 'Pick kettlebell, dumbbell or bodyweight, your goal and how much time you have. WODXP builds the workout and favours moves you have done least. Go easy on a body part with Upper or Lower body.' },
+  { key: 'attributes', emoji: '📊', title: 'Three attributes', color: C.mobility,
+    text: 'Strength, Mobility and Endurance level up separately. Higher attribute levels unlock harder movements.' },
+  { key: 'bosses', emoji: '⚔️', title: 'Bosses and Level Challenges', color: C.conditioning,
+    text: 'Every level has a goal to beat. Defeat bosses like Gym Goblin to earn big XP rewards.' },
+  { key: 'tests', emoji: '🎯', title: 'Fitness Tests', color: C.mobility, premium: true,
+    text: 'Test your endurance or strength and follow your progress over time.' },
+  { key: 'classic', emoji: '🏆', title: 'Classic Challenges', color: C.conditioning, premium: true,
+    text: 'Take on 15 classic challenges and go for bronze, silver and gold.' },
+  { key: 'friends', emoji: '👥', title: 'Train with friends', color: C.xp,
+    text: 'Challenge a friend to a duel or a shared challenge. Friends is free.' },
+];
+
+function drawOnboardingPage(ctx: CanvasRenderingContext2D, page: OnboardingPage, logo: HTMLImageElement | null) {
+  const X = 90;
+  const CW = RECAP_W - X * 2;
+  ctx.textBaseline = 'alphabetic';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = C.bg;
+  ctx.fillRect(0, 0, RECAP_W, RECAP_H);
+  ctx.save();
+  ctx.shadowColor = C.xp;
+  ctx.shadowBlur = 40;
+  ctx.strokeStyle = C.xp;
+  ctx.lineWidth = 4;
+  recapRoundRect(ctx, 30, 30, RECAP_W - 60, RECAP_H - 60, 56);
+  ctx.stroke();
+  ctx.restore();
+
+  if (logo) {
+    ctx.save();
+    recapRoundRect(ctx, X, 100, 200, 200, 44);
+    ctx.clip();
+    ctx.drawImage(logo, X, 100, 200, 200);
+    ctx.restore();
+  }
+  const hx = logo ? X + 230 : X;
+  ctx.fillStyle = C.text;
+  ctx.font = RF(700, 80, 'oswald');
+  ctx.fillText('WODXP', hx, 210);
+  ctx.fillStyle = C.muted;
+  ctx.font = RF(400, 36, 'inter');
+  ctx.fillText('Gamified kettlebell, dumbbell & bodyweight training', hx, 262, RECAP_W - hx - X);
+
+  // Emoji badge
+  ctx.fillStyle = `${page.color}26`;
+  ctx.beginPath();
+  ctx.arc(RECAP_W / 2, 640, 180, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = page.color;
+  ctx.lineWidth = 6;
+  ctx.stroke();
+  ctx.textAlign = 'center';
+  ctx.font = "200px 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif";
+  ctx.fillStyle = C.text;
+  ctx.fillText(page.emoji, RECAP_W / 2, 710);
+
+  // Title and text
+  ctx.fillStyle = C.text;
+  ctx.font = RF(700, 96, 'oswald');
+  let y = 960;
+  recapWrap(ctx, page.title, CW, 3).forEach((line) => { ctx.fillText(line, RECAP_W / 2, y); y += 112; });
+  if (page.premium) {
+    y += 4;
+    ctx.fillStyle = page.color;
+    ctx.font = RF(700, 40, 'inter');
+    ctx.fillText('PREMIUM', RECAP_W / 2, y);
+    y += 40;
+  }
+  y += 36;
+  ctx.fillStyle = C.muted;
+  ctx.font = RF(400, 46, 'inter');
+  recapWrap(ctx, page.text, CW - 40, 6).forEach((line) => { ctx.fillText(line, RECAP_W / 2, y); y += 66; });
+
+  // Footer
+  ctx.textAlign = 'left';
+  ctx.strokeStyle = C.border;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(X, 1670);
+  ctx.lineTo(X + CW, 1670);
+  ctx.stroke();
+  ctx.fillStyle = C.text;
+  ctx.font = RF(600, 40, 'oswald');
+  ctx.fillText('Train. Level Up. Challenge.', X, 1752);
+  ctx.fillStyle = C.mobility;
+  ctx.font = RF(700, 54, 'oswald');
+  ctx.fillText('www.wodxp.com', X, 1826);
+}
+
+async function renderOnboardingImages(pages: OnboardingPage[]): Promise<File[]> {
+  try {
+    await Promise.all([
+      document.fonts?.load(RF(700, 80, 'oswald')),
+      document.fonts?.load(RF(600, 40, 'oswald')),
+      document.fonts?.load(RF(400, 30, 'inter')),
+      document.fonts?.load(RF(700, 40, 'inter')),
+    ]);
+  } catch { /* fall back to system fonts */ }
+  let logo: HTMLImageElement | null = null;
+  try {
+    const img = new Image();
+    img.src = '/icon-512.png';
+    await img.decode();
+    logo = img;
+  } catch { logo = null; }
+  const files: File[] = [];
+  for (const page of pages) {
+    const canvas = document.createElement('canvas');
+    canvas.width = RECAP_W;
+    canvas.height = RECAP_H;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) continue;
+    drawOnboardingPage(ctx, page, logo);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+    if (blob) files.push(new File([blob], `wodxp-${page.key}.png`, { type: 'image/png' }));
+  }
+  return files;
+}
+
+function OnboardingModal({ onClose }: { onClose: () => void }) {
+  const pages = ONBOARDING_PAGES;
+  const trackRef = React.useRef<HTMLDivElement>(null);
+  const [current, setCurrent] = useState(0);
+  const [canHover, setCanHover] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [scope, setScope] = useState<'page' | 'all'>('page');
+  const [files, setFiles] = useState<File[] | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [shareNote, setShareNote] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    try {
+      setCanHover(window.matchMedia('(hover: hover) and (pointer: fine)').matches);
+      setReduceMotion(window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    } catch { /* older browsers */ }
+  }, []);
+
+  const go = (i: number) => {
+    const el = trackRef.current;
+    if (!el) return;
+    const idx = Math.max(0, Math.min(pages.length - 1, i));
+    el.scrollTo({ left: idx * el.clientWidth, behavior: reduceMotion ? 'auto' : 'smooth' });
+  };
+  const onScroll = () => {
+    const el = trackRef.current;
+    if (!el || el.clientWidth === 0) return;
+    setCurrent(Math.round(el.scrollLeft / el.clientWidth));
+  };
+  React.useEffect(() => {
+    if (sharing) return;
+    const el = trackRef.current;
+    if (el) el.scrollLeft = current * el.clientWidth;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sharing]);
+
+  const pageIndex = Math.min(current, pages.length - 1);
+  const last = pageIndex === pages.length - 1;
+
+  // Images are rendered ahead of the tap so navigator.share() runs directly inside the click.
+  React.useEffect(() => {
+    if (!sharing) return;
+    let cancelled = false;
+    setFiles(null);
+    renderOnboardingImages(scope === 'all' ? pages : [pages[pageIndex]]).then((f) => {
+      if (cancelled) return;
+      setFiles(f);
+      setPreviewUrl(f[0] ? URL.createObjectURL(f[0]) : null);
+    });
+    return () => { cancelled = true; };
+  }, [sharing, scope, pageIndex, pages]);
+  React.useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
+
+  const canShareFiles = !!files && files.length > 0 && typeof navigator !== 'undefined' && typeof navigator.canShare === 'function' && navigator.canShare({ files });
+  const saveImages = () => {
+    if (!files) return;
+    files.forEach((f, i) => {
+      window.setTimeout(() => {
+        const url = URL.createObjectURL(f);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = f.name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 4000);
+      }, i * 400);
+    });
+    setShareNote(files.length > 1 ? 'Images saved' : 'Image saved');
+  };
+  const shareImages = () => {
+    if (!files || !canShareFiles) { saveImages(); return; }
+    navigator.share({ files }).then(() => setShareNote('Shared!')).catch((e: { name?: string }) => {
+      if (e?.name === 'AbortError') return;
+      saveImages();
+    });
+  };
+
+  return (
+    <SafeModalShell>
+      <style>{'.wodxp-recap-track{scrollbar-width:none}.wodxp-recap-track::-webkit-scrollbar{display:none}'}</style>
+      <div className="relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-3xl border" style={{ borderColor: C.xp, backgroundColor: C.bg, boxShadow: `0 0 24px ${C.xp}33` }}>
+        <button onClick={onClose} aria-label="Close" className="absolute right-3 top-3 z-10 rounded-full p-1.5" style={{ color: C.muted }}>
+          <X size={20} />
+        </button>
+        <div className="flex items-center gap-3 px-5 pb-2 pt-5">
+          <img src="/icon-512.png" alt="WODXP" className="h-16 w-16 rounded-2xl" />
+          <div className="min-w-0">
+            <h2 className="text-xl font-bold leading-tight" style={SG}>Welcome to WODXP</h2>
+            <p className="truncate text-xs" style={{ color: C.muted }}>How it works</p>
+          </div>
+        </div>
+
+        {!sharing ? (
+          <>
+            <div ref={trackRef} onScroll={onScroll} className="wodxp-recap-track flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto">
+              {pages.map((p) => (
+                <section key={p.key} className="flex w-full shrink-0 snap-start flex-col items-center justify-center gap-3 overflow-y-auto px-6 py-4 text-center" style={{ minHeight: 340 }}>
+                  <div className="flex h-24 w-24 items-center justify-center rounded-full text-5xl" style={{ backgroundColor: `${p.color}26`, border: `2px solid ${p.color}` }}>{p.emoji}</div>
+                  <h3 className="text-2xl font-bold" style={SG}>{p.title}</h3>
+                  {p.premium && <span className="rounded-full px-3 py-0.5 text-[11px] font-bold uppercase tracking-wider" style={{ backgroundColor: `${p.color}26`, color: p.color }}>Premium</span>}
+                  <p className="text-sm leading-relaxed" style={{ color: C.muted }}>{p.text}</p>
+                </section>
+              ))}
+            </div>
+            <div className="flex items-center justify-center gap-3 px-5 pt-2">
+              {canHover && (
+                <button onClick={() => go(pageIndex - 1)} aria-label="Previous" disabled={pageIndex === 0} className="rounded-lg border p-1 disabled:opacity-30" style={{ borderColor: C.border, color: C.muted }}>
+                  <ChevronLeft size={16} />
+                </button>
+              )}
+              <div className="flex items-center gap-1.5">
+                {pages.map((p, i) => (
+                  <button key={p.key} onClick={() => go(i)} aria-label={`Page ${i + 1}`} className="h-2 rounded-full transition-all"
+                    style={{ width: i === pageIndex ? 18 : 8, backgroundColor: i === pageIndex ? C.xp : C.border }}></button>
+                ))}
+              </div>
+              {canHover && (
+                <button onClick={() => go(pageIndex + 1)} aria-label="Next" disabled={last} className="rounded-lg border p-1 disabled:opacity-30" style={{ borderColor: C.border, color: C.muted }}>
+                  <ChevronRight size={16} />
+                </button>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 py-2">
+            <div className="flex justify-center">
+              {previewUrl
+                ? <img src={previewUrl} alt="Share preview" className="h-56 rounded-xl border" style={{ borderColor: C.border }} />
+                : <div className="flex h-56 w-[126px] items-center justify-center rounded-xl border text-xs" style={{ borderColor: C.border, color: C.muted }}>Preparing…</div>}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {(['page', 'all'] as const).map((v) => (
+                <button key={v} onClick={() => setScope(v)} className="rounded-xl border py-2 text-xs font-semibold"
+                  style={{ borderColor: scope === v ? C.xp : C.border, color: scope === v ? C.xp : C.muted }}>
+                  {v === 'page' ? 'This page' : `All pages (${pages.length})`}
+                </button>
+              ))}
+            </div>
+            {scope === 'all' && <p className="text-[11px]" style={{ color: C.muted }}>Some apps only accept one image at a time.</p>}
+            <div className="mt-1 flex flex-col gap-2">
+              {canShareFiles && (
+                <button onClick={shareImages} disabled={!files} className="flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold disabled:opacity-40" style={{ backgroundColor: C.xp, color: '#04140A', ...SG }}>
+                  <Share2 size={16} /> Share
+                </button>
+              )}
+              <button onClick={saveImages} disabled={!files} className="flex items-center justify-center gap-2 rounded-2xl border py-3 text-sm font-bold disabled:opacity-40"
+                style={canShareFiles ? { borderColor: C.border, color: C.text, ...SG } : { backgroundColor: C.xp, borderColor: C.xp, color: '#04140A', ...SG }}>
+                <Download size={16} /> {files && files.length > 1 ? 'Save images' : 'Save image'}
+              </button>
+              {shareNote && <p className="text-center text-xs" style={{ color: C.xp }}>{shareNote}</p>}
+              <button onClick={() => { setSharing(false); setShareNote(null); }} className="py-1 text-xs" style={{ color: C.muted }}>Back</button>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-2 flex items-center justify-between gap-3 border-t px-5 pb-4 pt-3" style={{ borderColor: C.border }}>
+          {!sharing ? (
+            <>
+              {last ? (
+                <button onClick={() => { setShareNote(null); setSharing(true); }} className="flex items-center gap-1.5 rounded-xl border px-3 py-2.5 text-xs font-semibold" style={{ borderColor: C.border, color: C.muted, ...SG }}>
+                  <Share2 size={14} /> Share
+                </button>
+              ) : (
+                <button onClick={onClose} className="px-1 py-2.5 text-xs font-semibold" style={{ color: C.muted, ...SG }}>Skip</button>
+              )}
+              <div className="flex items-center gap-2">
+                {!last && (
+                  <button onClick={() => { setShareNote(null); setSharing(true); }} aria-label="Share this page" className="rounded-xl border p-2.5" style={{ borderColor: C.border, color: C.muted }}>
+                    <Share2 size={14} />
+                  </button>
+                )}
+                <LedBorderButton onClick={() => (last ? onClose() : go(pageIndex + 1))} radius={12}
+                  className="flex items-center gap-1.5 rounded-xl px-5 py-2.5 text-sm font-bold" style={{ backgroundColor: C.xp, color: '#04140A', ...SG }}>
+                  {last ? "Let's go" : 'Next'}
+                </LedBorderButton>
+              </div>
+            </>
+          ) : (
+            <div>
+              <p className="text-[11px] font-semibold" style={SG}>Train. Level Up. Challenge.</p>
+              <p className="text-sm font-bold" style={{ ...SG, color: C.mobility }}>www.wodxp.com</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </SafeModalShell>
+  );
+}
+
 // ─── Streak & Level-up messages ────────────────────────────────────────────────
 const STREAK_MESSAGES: Record<3 | 5 | 7, string[]> = {
   3: [
@@ -5302,7 +5622,7 @@ function AccessCodeModal({ status, onClose, onRedeemed }: { status: PremiumStatu
   );
 }
 
-function ProfileMenu({ onPremiumChange, userId, username, level, onLogout, onPrivacy, onTerms, onInstall, installed, allTimeStats }: { onPremiumChange?: (p: PremiumStatus) => void; userId: string; username: string; level: number; onLogout: () => void; onPrivacy: () => void; onTerms: () => void; onInstall: () => void; installed: boolean; allTimeStats: AllTimeStats }) {
+function ProfileMenu({ onPremiumChange, userId, username, level, onLogout, onPrivacy, onTerms, onInstall, onShowIntro, installed, allTimeStats }: { onPremiumChange?: (p: PremiumStatus) => void; userId: string; username: string; level: number; onLogout: () => void; onPrivacy: () => void; onTerms: () => void; onInstall: () => void; onShowIntro: () => void; installed: boolean; allTimeStats: AllTimeStats }) {
   const [showDelete, setShowDelete] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [showCode, setShowCode] = useState(false);
@@ -5337,6 +5657,10 @@ function ProfileMenu({ onPremiumChange, userId, username, level, onLogout, onPri
       <div className="px-5 pt-6 flex flex-col gap-3">
         <button onClick={onInstall} className="flex w-full items-center justify-between rounded-2xl border py-4 px-5 text-sm font-bold" style={{ borderColor: C.border, color: C.text, backgroundColor: C.surface, ...SG }}>
           <span>Add to Home Screen{installed && <span className="ml-2 text-xs font-medium" style={{ color: C.xp }}>Installed ✓</span>}</span>
+          <ChevronRight size={16} style={{ color: C.muted }} />
+        </button>
+        <button onClick={onShowIntro} className="flex w-full items-center justify-between rounded-2xl border py-4 px-5 text-sm font-bold" style={{ borderColor: C.border, color: C.text, backgroundColor: C.surface, ...SG }}>
+          <span>How WODXP works</span>
           <ChevronRight size={16} style={{ color: C.muted }} />
         </button>
         <button onClick={() => { const next = !soundOn; setSoundEnabled(next); setSoundOn(next); if (next) void playSound('click'); }} className="flex w-full items-center justify-between rounded-2xl border py-4 px-5 text-sm font-bold" style={{ borderColor: C.border, color: C.text, backgroundColor: C.surface, ...SG }}>
@@ -6706,6 +7030,15 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
   const [premium, setPremium] = useState<PremiumStatus | null>(null);
   const premiumLocked = premium !== null && !premium.active;
   const [showCodeModal, setShowCodeModal] = useState(false);
+  // Onboarding (backlog 14): first start only (flag on the account). `=== null` so nothing shows
+  // if the column does not exist yet; Profile → "How WODXP works" reopens it.
+  const [showOnboarding, setShowOnboarding] = useState(stats.onboarding_seen_at === null);
+  const closeOnboarding = () => {
+    setShowOnboarding(false);
+    if (stats.onboarding_seen_at === null) {
+      createClient().rpc('mark_onboarding_seen').then(() => { setStats((s) => ({ ...s, onboarding_seen_at: new Date().toISOString() })); }, () => {});
+    }
+  };
   const [lockModalFeature, setLockModalFeature] = useState<string | null>(null);
   // Back from the Stripe checkout (the payment link redirects to /?premium=thanks).
   const [showThanks, setShowThanks] = useState(false);
@@ -7235,7 +7568,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     premiumLocked={premiumLocked} onLockedTap={() => setLockModalFeature('Fitness Tests')} onEnterCode={() => setShowCodeModal(true)} />;
   else if (tab === 'exercises') content = <ExercisesScreen exercises={exercises} blockedIds={blockedIds} onToggleBlock={toggleBlock} starredIds={starredIds} onToggleStar={toggleStar} starLocked={!starUnlocked} />;
   else if (tab === 'stats') content = <StatsScreen stats={stats} records={exerciseRecords} exercises={exercises} starredIds={starredIds} premiumLocked={premiumLocked} onLocked={() => setLockModalFeature('Progress history')} />;
-  else if (tab === 'profile') content = <ProfileMenu onPremiumChange={setPremium} userId={user.id} username={user.username} level={stats.level} onLogout={handleLogout} onPrivacy={() => router.push('/privacy')} onTerms={() => router.push('/terms')} onInstall={() => setShowInstallGuide(true)} installed={installed} allTimeStats={allTimeStats} />;
+  else if (tab === 'profile') content = <ProfileMenu onPremiumChange={setPremium} userId={user.id} username={user.username} level={stats.level} onLogout={handleLogout} onPrivacy={() => router.push('/privacy')} onTerms={() => router.push('/terms')} onInstall={() => setShowInstallGuide(true)} onShowIntro={() => setShowOnboarding(true)} installed={installed} allTimeStats={allTimeStats} />;
 
   return (
     <div style={{ backgroundColor: C.bg }}>
@@ -7262,10 +7595,11 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
       {lockModalFeature && !showCodeModal && (
         <PremiumLockModal feature={lockModalFeature} onClose={() => setLockModalFeature(null)} onEnterCode={() => { setLockModalFeature(null); setShowCodeModal(true); }} />
       )}
-      {showCodeModal && <AccessCodeModal status={premium} onClose={() => setShowCodeModal(false)} onRedeemed={(p) => setPremium(p)} />}
+      {showOnboarding && <OnboardingModal onClose={closeOnboarding} />}
+      {showCodeModal && !showOnboarding && <AccessCodeModal status={premium} onClose={() => setShowCodeModal(false)} onRedeemed={(p) => setPremium(p)} />}
       {showThanks && <PremiumThanksModal onClose={() => setShowThanks(false)} onActive={(p) => setPremium(p)} />}
-      {restBonus && <RestBonusModal xp={restBonus.xp} streak={restBonus.streak} onClose={() => setRestBonus(null)} />}
-      {monthlyRecap && !restBonus && (
+      {restBonus && !showOnboarding && <RestBonusModal xp={restBonus.xp} streak={restBonus.streak} onClose={() => setRestBonus(null)} />}
+      {monthlyRecap && !restBonus && !showOnboarding && (
         <MonthlyRecapModal summary={monthlyRecap} username={user.username} premiumLocked={premiumLocked} onClose={closeMonthlyRecap} />
       )}
       {showInstallGuide && (
