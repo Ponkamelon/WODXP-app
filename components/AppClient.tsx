@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { readPendingCode, clearPendingCode } from '@/lib/pendingCode';
+import { playSound, installClickSounds, soundEnabled, setSoundEnabled } from '@/lib/sounds';
 import { motion, useMotionValue, animate } from 'motion/react';
 import {
   Flame, ChevronRight, Search, Lock, Trophy, Swords, Plus, Crown,
@@ -1777,6 +1778,10 @@ function LevelChallengeScreen({ challenge, exercises, userId, onBack, onComplete
     const id = setInterval(() => setTimeLeft((t) => Math.max(0, t - 1)), 1000);
     return () => clearInterval(id);
   }, [timerRunning, timeLeft]);
+  React.useEffect(() => {
+    if (timerRunning && countdownFrom && timeLeft === 0) holdSetDoneSignal();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeLeft]);
 
   const isCombo = challenge.structure != null && challenge.structure.length > 0;
   const linkedExercise = !isCombo ? findExerciseByName(exercises, challenge.exercise_name) : null;
@@ -2772,9 +2777,13 @@ function holdBeep(freqs: number[], vibrate: number[]) {
   } catch { /* audio unavailable */ }
   try { navigator.vibrate?.(vibrate); } catch { /* vibration unavailable */ }
 }
-const holdRepDoneSignal = () => holdBeep([780], [200]);            // a hold ended, rest begins
+/** Timer-end sound (falls back to the old beep if audio is blocked). */
+function timerEndSignal(vibrate: number[], fallbackFreqs: number[]) {
+  void playSound('timerEnd').then((ok) => { if (!ok && soundEnabled()) holdBeep(fallbackFreqs, vibrate); else { try { navigator.vibrate?.(vibrate); } catch { /* vibration unavailable */ } } });
+}
+const holdRepDoneSignal = () => timerEndSignal([200], [780]);       // a hold ended, rest begins
 const holdGoSignal = () => holdBeep([1100], [100]);                 // rest ended, next hold begins
-const holdSetDoneSignal = () => holdBeep([780, 780, 1100], [200, 100, 200, 100, 300]); // whole set finished
+const holdSetDoneSignal = () => timerEndSignal([200, 100, 200, 100, 300], [780, 780, 1100]); // whole set finished
 
 const HOLD_REST_SECONDS = 3;
 
@@ -4026,6 +4035,10 @@ function CompleteScreen({ xpEarned, exerciseSummary, levelUps, streakMessage, ne
   onHome: () => void;
 }) {
   const levelUpMessage = levelUps.length > 0 ? randomFrom(LEVEL_UP_MESSAGES) : null;
+  React.useEffect(() => {
+    if (levelUps.length > 0 || newlyUnlocked > 0 || unlockedChallenge) void playSound('levelUp');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-5 text-center" style={{ backgroundColor: C.bg }}>
@@ -5293,6 +5306,8 @@ function ProfileMenu({ onPremiumChange, userId, username, level, onLogout, onPri
   const [showDelete, setShowDelete] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [showCode, setShowCode] = useState(false);
+  const [soundOn, setSoundOn] = useState(true);
+  React.useEffect(() => setSoundOn(soundEnabled()), []);
   const [premium, setPremium] = useState<PremiumStatus | null>(null);
   React.useEffect(() => {
     let cancelled = false;
@@ -5323,6 +5338,10 @@ function ProfileMenu({ onPremiumChange, userId, username, level, onLogout, onPri
         <button onClick={onInstall} className="flex w-full items-center justify-between rounded-2xl border py-4 px-5 text-sm font-bold" style={{ borderColor: C.border, color: C.text, backgroundColor: C.surface, ...SG }}>
           <span>Add to Home Screen{installed && <span className="ml-2 text-xs font-medium" style={{ color: C.xp }}>Installed ✓</span>}</span>
           <ChevronRight size={16} style={{ color: C.muted }} />
+        </button>
+        <button onClick={() => { const next = !soundOn; setSoundEnabled(next); setSoundOn(next); if (next) void playSound('click'); }} className="flex w-full items-center justify-between rounded-2xl border py-4 px-5 text-sm font-bold" style={{ borderColor: C.border, color: C.text, backgroundColor: C.surface, ...SG }}>
+          <span>Sounds</span>
+          <span className="text-xs font-medium" style={{ color: soundOn ? C.xp : C.muted }}>{soundOn ? 'On' : 'Off'}</span>
         </button>
         {PREMIUM_PAYMENT_LINK && premium !== null && (
           <div className="rounded-2xl border p-4" style={{ borderColor: C.border, backgroundColor: C.surface }}>
@@ -5500,7 +5519,7 @@ function FitnessTestScreen({ test, results, totalWorkouts, userId, onBack, onSav
       } else {
         const left = Math.max(0, Math.ceil((test.duration_seconds ?? 0) - sec));
         setRemaining(left);
-        if (left <= 0) { clearInterval(id); setPhase('enter'); }
+        if (left <= 0) { clearInterval(id); holdSetDoneSignal(); setPhase('enter'); }
       }
     }, 200);
     return () => clearInterval(id);
@@ -6297,7 +6316,7 @@ function FriendsScreen() {
     const ov = data as FriendsOverview;
     for (const f of ov.friends) {
       const prev = levelsRef.current[f.friendship_id];
-      if (prev !== undefined && f.friends_level > prev) setLevelUp(`Level up! You and ${f.username} reached Friends Lv ${f.friends_level}.`);
+      if (prev !== undefined && f.friends_level > prev) { setLevelUp(`Level up! You and ${f.username} reached Friends Lv ${f.friends_level}.`); void playSound('levelUp'); }
       levelsRef.current[f.friendship_id] = f.friends_level;
     }
     setOverview(ov);
@@ -6690,6 +6709,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
   const [lockModalFeature, setLockModalFeature] = useState<string | null>(null);
   // Back from the Stripe checkout (the payment link redirects to /?premium=thanks).
   const [showThanks, setShowThanks] = useState(false);
+  React.useEffect(() => installClickSounds(), []);
   React.useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
