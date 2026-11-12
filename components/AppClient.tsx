@@ -3947,18 +3947,18 @@ function MonthlyRecapModal({ summary, username, premiumLocked, onClose }: {
 // ─── Onboarding carousel (backlog 14) ─────────────────────────────────────────
 // Shown once per account (user_stats.onboarding_seen_at, set by mark_onboarding_seen) and
 // reopenable from Profile → "How WODXP works". Each page can also be shared as a story image.
-// image: a picture drawn in the app's style (public/onboarding). 'ring' = shown inside the round badge, 'card' = shown as a rounded card.
-interface OnboardingPage { key: string; emoji: string; title: string; text: string; color: string; premium?: boolean; image?: string; imageShape?: 'ring' | 'card' }
+// image: a picture drawn in the app's style (public/onboarding). 'square' = rounded square, 'card' = tall rounded card.
+interface OnboardingPage { key: string; emoji: string; title: string; text: string; color: string; premium?: boolean; image?: string; imageShape?: 'square' | 'card' }
 const ONBOARDING_PAGES: OnboardingPage[] = [
   { key: 'xp', emoji: '⚡', title: 'Train. Earn XP. Level up.', color: C.xp,
     text: 'Every workout gives you XP. Collect it, level up and unlock new movements. Train on back-to-back days to build a streak.' },
-  { key: 'workouts', emoji: '🏋️', title: 'Workouts built for you', color: C.xp, image: '/onboarding/workouts.png', imageShape: 'ring',
+  { key: 'workouts', emoji: '🏋️', title: 'Workouts built for you', color: C.xp, image: '/onboarding/workouts.png', imageShape: 'square',
     text: 'Pick kettlebell, dumbbell or bodyweight, your goal and how much time you have. WODXP builds the workout and favours moves you have done least. Go easy on a body part with Upper or Lower body.' },
-  { key: 'attributes', emoji: '📊', title: 'Three attributes', color: C.mobility, image: '/onboarding/attributes.png', imageShape: 'ring',
+  { key: 'attributes', emoji: '📊', title: 'Three attributes', color: C.mobility, image: '/onboarding/attributes.png', imageShape: 'square',
     text: 'Strength, Mobility and Endurance level up separately. Higher attribute levels unlock harder movements.' },
   { key: 'bosses', emoji: '⚔️', title: 'Bosses and Level Challenges', color: C.conditioning,
     text: 'Every level has a goal to beat. Defeat bosses like Gym Goblin to earn big XP rewards.' },
-  { key: 'tests', emoji: '🎯', title: 'Fitness Tests', color: C.mobility, premium: true, image: '/onboarding/tests.png', imageShape: 'ring',
+  { key: 'tests', emoji: '🎯', title: 'Fitness Tests', color: C.mobility, premium: true, image: '/onboarding/tests.png', imageShape: 'square',
     text: 'Test your endurance or strength and follow your progress over time.' },
   { key: 'classic', emoji: '🏆', title: 'Classic Challenges', color: C.conditioning, premium: true,
     text: 'Take on 15 classic challenges and go for bronze, silver and gold.' },
@@ -4001,8 +4001,8 @@ function drawOnboardingPage(ctx: CanvasRenderingContext2D, page: OnboardingPage,
 
   // Badge: a picture from the app (round or card) or an emoji
   let y = 960;
-  if (pic && page.imageShape === 'card') {
-    const ch = 700, cw = Math.round(ch * pic.width / pic.height), cx = (RECAP_W - cw) / 2, cy = 340;
+  if (pic && page.imageShape) {
+    const ch = pic.width / pic.height > 0.9 ? 600 : 700, cw = Math.round(ch * pic.width / pic.height), cx = (RECAP_W - cw) / 2, cy = 340;
     ctx.save();
     recapRoundRect(ctx, cx, cy, cw, ch, 40);
     ctx.clip();
@@ -4014,27 +4014,19 @@ function drawOnboardingPage(ctx: CanvasRenderingContext2D, page: OnboardingPage,
     ctx.stroke();
     y = cy + ch + 110;
   } else {
-    const R = pic ? 250 : 180, cy = pic ? 640 : 640;
-    ctx.fillStyle = pic ? C.bg : `${page.color}26`;
+    const R = 180, cy = 640;
+    ctx.fillStyle = `${page.color}26`;
     ctx.beginPath();
     ctx.arc(RECAP_W / 2, cy, R, 0, Math.PI * 2);
     ctx.fill();
-    if (pic) {
-      const d = R * 2 * 0.74;
-      ctx.drawImage(pic, RECAP_W / 2 - d / 2, cy - d / 2, d, d);
-    }
     ctx.strokeStyle = page.color;
     ctx.lineWidth = 6;
-    ctx.beginPath();
-    ctx.arc(RECAP_W / 2, cy, R, 0, Math.PI * 2);
     ctx.stroke();
-    if (!pic) {
-      ctx.textAlign = 'center';
-      ctx.font = "200px 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif";
-      ctx.fillStyle = C.text;
-      ctx.fillText(page.emoji, RECAP_W / 2, 710);
-    }
-    y = pic ? 1010 : 960;
+    ctx.textAlign = 'center';
+    ctx.font = "200px 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif";
+    ctx.fillStyle = C.text;
+    ctx.fillText(page.emoji, RECAP_W / 2, 710);
+    y = 960;
   }
   ctx.textAlign = 'center';
 
@@ -4203,12 +4195,8 @@ function OnboardingModal({ onClose }: { onClose: () => void }) {
             <div ref={trackRef} onScroll={onScroll} className="wodxp-recap-track flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto">
               {pages.map((p) => (
                 <section key={p.key} className="flex w-full shrink-0 snap-start flex-col items-center justify-center gap-3 overflow-y-auto px-6 py-4 text-center" style={{ minHeight: 340 }}>
-                  {p.image && p.imageShape === 'card' ? (
-                    <img src={p.image} alt="" className="h-44 rounded-2xl border-2" style={{ borderColor: p.color }} />
-                  ) : p.image ? (
-                    <div className="flex h-32 w-32 items-center justify-center overflow-hidden rounded-full" style={{ backgroundColor: C.bg, border: `2px solid ${p.color}` }}>
-                      <img src={p.image} alt="" className="h-[74%] w-[74%]" />
-                    </div>
+                  {p.image ? (
+                    <img src={p.image} alt="" className={`${p.imageShape === 'card' ? 'h-44' : 'h-48 w-48'} rounded-2xl border-2`} style={{ borderColor: p.color }} />
                   ) : (
                     <div className="flex h-24 w-24 items-center justify-center rounded-full text-5xl" style={{ backgroundColor: `${p.color}26`, border: `2px solid ${p.color}` }}>{p.emoji}</div>
                   )}
