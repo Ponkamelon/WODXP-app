@@ -9,7 +9,7 @@ import {
   Flame, ChevronRight, Search, Lock, Trophy, Swords, Plus, Crown,
   TrendingUp, Award, Sparkles, Target, Clock, Gauge,
   Minus, Check, ArrowLeft, Users, Timer, RefreshCw, Star, Ban,
-  X, ChevronLeft, Share2, Download,
+  X, ChevronLeft, Share2, Download, Dumbbell,
 } from 'lucide-react';
 import {
   CATEGORY_ICONS, CATEGORY_LABELS, EQUIPMENT_LABELS, EQUIPMENT_COLORS,
@@ -30,6 +30,7 @@ interface Exercise {
   equipment: string[]; primary_attribute: string; unlock_level: number;
   xp_value: number; default_sets: number; default_reps: number;
   default_weight_kg: number; illustration_url?: string; instructions?: string;
+  body_region?: 'upper' | 'lower' | 'core' | 'full';
 }
 interface BossExercise { exercise_name: string; reps?: number; duration_seconds?: number; }
 interface LevelChallenge {
@@ -2511,6 +2512,8 @@ function GeneratorScreen({ exercises, totalExerciseCount, records, userId, starr
   );
   const [goal, setGoal] = useState<'strength' | 'conditioning' | 'mobility' | 'mixed'>('mixed');
   const [duration, setDuration] = useState<10 | 20 | 30 | 45>(20);
+  const [focus, setFocus] = useState<'full' | 'upper' | 'lower'>('full');
+  const [emptyMsg, setEmptyMsg] = useState<string | null>(null);
   const [building, setBuilding] = useState(false);
 
   const toggleEquipment = (eq: 'kettlebell' | 'dumbbell' | 'bodyweight') => {
@@ -2529,10 +2532,18 @@ function GeneratorScreen({ exercises, totalExerciseCount, records, userId, starr
     // Brief "BUILDING YOUR WOD..." beat per spec section 13 — the pool is
     // computed immediately, but onStart is deferred ~750ms so the pulse
     // sequence has time to play instead of instantly jumping to Safety.
-    setBuilding(true);
     // Match on the equipment the exercise is SHOWN with (kettlebell wins for the two
     // exercises tagged for both), so a dumbbell-only session never contains a "KB" card.
-    const equipmentPool = exercises.filter((ex) => equipment.has(pickPrimaryEquipment(ex.equipment)));
+    // Focus: Upper = upper + core, Lower = lower + core, Full = everything (no silent fallback to other regions).
+    const equipmentPool = exercises
+      .filter((ex) => equipment.has(pickPrimaryEquipment(ex.equipment)))
+      .filter((ex) => focus === 'full' || ex.body_region === focus || ex.body_region === 'core');
+    if (equipmentPool.length === 0) {
+      setEmptyMsg(`No ${focus} body exercises unlocked for this equipment yet. Try another equipment, or Full body.`);
+      return;
+    }
+    setEmptyMsg(null);
+    setBuilding(true);
     const pool = goal === 'mixed' ? equipmentPool : equipmentPool.filter((ex) => ex.primary_attribute === goal);
     const count = duration <= 10 ? 3 : duration <= 20 ? 4 : duration <= 30 ? 5 : 6;
     const usedPool = pool.length > 0 ? pool : equipmentPool;
@@ -2580,6 +2591,15 @@ function GeneratorScreen({ exercises, totalExerciseCount, records, userId, starr
             <ToggleOpt label="Dumbbell" color={EQUIPMENT_COLORS.dumbbell} active={equipment.has('dumbbell')} onClick={() => toggleEquipment('dumbbell')} />
             <ToggleOpt label="Bodyweight" color={EQUIPMENT_COLORS.bodyweight} active={equipment.has('bodyweight')} onClick={() => toggleEquipment('bodyweight')} />
           </div>
+        </div>
+        <div>
+          <p className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider" style={{ color: C.muted }}><Dumbbell size={14} /> Focus</p>
+          <div className="flex gap-2">
+            <Opt label="Full body" val="full" cur={focus} set={setFocus} />
+            <Opt label="Upper body" val="upper" cur={focus} set={setFocus} />
+            <Opt label="Lower body" val="lower" cur={focus} set={setFocus} />
+          </div>
+          {emptyMsg && <p className="mt-2 text-xs" style={{ color: C.conditioning }}>{emptyMsg}</p>}
         </div>
         <div>
           <p className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider" style={{ color: C.muted }}><Target size={14} /> Goal</p>
