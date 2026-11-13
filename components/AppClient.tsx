@@ -2900,7 +2900,7 @@ function HoldTimer({ accent, reps, kind = 'hold' }: { accent: string; reps: numb
   );
 }
 
-function WorkoutScreen({ exercises: initialExercises, pool: fullPool, userId, durationMinutes, mixed, records, blockedIds, onToggleBlock, starredIds, onToggleStar, starLocked, onBack, onFinish }: { exercises: Exercise[]; pool: Exercise[]; userId: string; durationMinutes: number; mixed: boolean; records: Record<string, ExerciseRecord>; blockedIds: Set<string>; onToggleBlock: (ex: Exercise) => void; starredIds: Set<string>; onToggleStar: (ex: Exercise) => void; starLocked: boolean; onBack: () => void; onFinish: (requestedXp: number, grantedXp: number, doneLogs: { exerciseId: string; weight: number; reps: number }[], challenges: ChallengeClear[]) => void }) {
+function WorkoutScreen({ exercises: initialExercises, presetLogs, pool: fullPool, userId, durationMinutes, mixed, records, blockedIds, onToggleBlock, starredIds, onToggleStar, starLocked, onBack, onFinish }: { exercises: Exercise[]; presetLogs?: Record<string, { weight: number; reps: number; sets: number }>; pool: Exercise[]; userId: string; durationMinutes: number; mixed: boolean; records: Record<string, ExerciseRecord>; blockedIds: Set<string>; onToggleBlock: (ex: Exercise) => void; starredIds: Set<string>; onToggleStar: (ex: Exercise) => void; starLocked: boolean; onBack: () => void; onFinish: (requestedXp: number, grantedXp: number, doneLogs: { exerciseId: string; weight: number; reps: number }[], challenges: ChallengeClear[]) => void }) {
   // Captured once, when the workout screen first mounts — i.e. when the
   // user actually starts training. Without this, the session row would
   // only get a started_at/completed_at pair at save time (both ~identical),
@@ -2912,7 +2912,7 @@ function WorkoutScreen({ exercises: initialExercises, pool: fullPool, userId, du
   // for another before its first set is logged.
   const [exercises, setExercises] = useState<Exercise[]>(initialExercises);
   const [logs, setLogs] = useState<Record<string, { weight: number; reps: number; sets: number }>>(
-    Object.fromEntries(initialExercises.map((ex) => [ex.id, startingLog(ex, records)]))
+    Object.fromEntries(initialExercises.map((ex) => [ex.id, presetLogs?.[ex.id] ?? startingLog(ex, records)]))
   );
   const seenIds = React.useRef<Set<string>>(new Set(initialExercises.map((e) => e.id)));
   const [done, setDone] = useState<Set<string>>(new Set());
@@ -6040,6 +6040,12 @@ interface ChOverview {
   caps: { recipient_used: number; recipient_cap: number; sender_used: number; sender_cap: number };
 }
 
+// Friends challenges that can be started straight from the Friends tab: the exercise ids that count for the
+// template (same ids as challenge_templates.exercise_ids in db/friends_step2.sql). Sets of 25 reps (the last set may be shorter).
+const CHALLENGE_START: Record<string, { exerciseIds: string[]; repsPerSet: number }> = {
+  'burpee-century': { exerciseIds: ['f1a2d130-472b-42a8-b461-a32476e71af6', '74350699-622a-4ea3-ba64-34cdd156d88a'], repsPerSet: 25 },
+};
+
 // ─── Friends (step 1: invite codes, friend list, sharing controls, shared streak + level) ──
 interface FriendSettingsData {
   friends_enabled: boolean; share_last_workout: boolean; allow_invites: boolean; allow_challenges: boolean;
@@ -6215,7 +6221,7 @@ function ChallengeProgress({ value, target }: { value: number; target: number })
   );
 }
 
-function ChallengesSection({ friends, onChanged }: { friends: FriendEntry[]; onChanged: () => void }) {
+function ChallengesSection({ friends, onChanged, onStartChallenge }: { friends: FriendEntry[]; onChanged: () => void; onStartChallenge: (slug: string, target: number) => Promise<boolean> }) {
   const [ov, setOv] = useState<ChOverview | null>(null);
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -6365,6 +6371,13 @@ function ChallengesSection({ friends, onChanged }: { friends: FriendEntry[]; onC
                   <p className="text-[11px]" style={{ color: l.proof ? C.xp : C.muted }}>
                     {l.proof ? `Cleared ${new Date(l.proof.completed_at).toLocaleDateString()}` : 'Clear it in a saved workout to send it'}
                   </p>
+                  {!l.proof && CHALLENGE_START[t.slug] && (
+                    <button disabled={busy}
+                      onClick={async () => { setBusy(true); const ok = await onStartChallenge(t.slug, l.target); if (!ok) { setMsg({ text: 'Could not start the workout. Try again.', ok: false }); setBusy(false); } }}
+                      className="mt-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-bold" style={{ borderColor: C.xp, color: C.xp, ...SG }}>
+                      Start {l.target} now
+                    </button>
+                  )}
                 </div>
                 <button disabled={!l.proof || busy || activeFriends.length === 0}
                   onClick={() => { setSendFor({ tpl: t, level: l }); setSendTo(activeFriends[0]?.friendship_id ?? ''); }}
@@ -6642,7 +6655,7 @@ function DuelsSection({ friends, onChanged }: { friends: FriendEntry[]; onChange
   );
 }
 
-function FriendsScreen() {
+function FriendsScreen({ onStartChallenge }: { onStartChallenge: (slug: string, target: number) => Promise<boolean> }) {
   const [overview, setOverview] = useState<FriendsOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -6941,7 +6954,7 @@ function FriendsScreen() {
             )}
           </section>
 
-          <ChallengesSection friends={overview.friends} onChanged={load} />
+          <ChallengesSection friends={overview.friends} onChanged={load} onStartChallenge={onStartChallenge} />
 
           <DuelsSection friends={overview.friends} onChanged={load} />
 
@@ -7044,6 +7057,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
   const [screen, setScreen] = useState<Screen>('tab');
   const [sessionExercises, setSessionExercises] = useState<Exercise[]>([]);
   const [sessionPool, setSessionPool] = useState<Exercise[]>([]); // candidates for swapping a workout exercise
+  const [sessionPreset, setSessionPreset] = useState<Record<string, { weight: number; reps: number; sets: number }> | undefined>(undefined);
   const [sessionDurationMinutes, setSessionDurationMinutes] = useState(20);
   const [sessionMixed, setSessionMixed] = useState(false);
   const [lastXP, setLastXP] = useState(0);
@@ -7115,6 +7129,29 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     });
     return () => { cancelled = true; };
   }, []);
+  // Friends challenge → a ready-made workout with only the counting exercise (e.g. Burpee, 4 sets × 25 reps = 100).
+  // Works even if the exercise is not unlocked yet by attribute level, so the challenge can always be tried.
+  const startFriendChallenge = async (slug: string, target: number): Promise<boolean> => {
+    const cfg = CHALLENGE_START[slug];
+    if (!cfg) return false;
+    let ex: Exercise | undefined = exercises.find((e) => cfg.exerciseIds.includes(e.id));
+    if (!ex) {
+      const { data, error } = await createClient().from('exercises').select('*').in('id', cfg.exerciseIds);
+      if (error || !data || data.length === 0) return false;
+      ex = [...(data as Exercise[])].sort((x, y) => x.unlock_level - y.unlock_level)[0];
+    }
+    const reps = cfg.repsPerSet;
+    const sets = Math.max(1, Math.ceil(target / reps));
+    setSessionPreset({ [ex.id]: { weight: 0, reps, sets } });
+    setSessionExercises([ex]);
+    setSessionMixed(false);
+    setSessionPool([]);
+    setSessionDurationMinutes(10);
+    const skip = typeof window !== 'undefined' && window.localStorage.getItem('wodxp_skip_safety_notice') === '1';
+    setScreen(skip ? 'workout' : 'safety');
+    return true;
+  };
+
   const toggleBlock = async (ex: Exercise) => {
     const wasBlocked = blockedIds.has(ex.id);
     const apply = (blocked: boolean) => setBlockedIds((prev) => { const n = new Set(prev); if (blocked) n.add(ex.id); else n.delete(ex.id); return n; });
@@ -7523,6 +7560,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
       <PageTransition screenKey={screen}>
         <GeneratorScreen exercises={exercises.filter((e) => !blockedIds.has(e.id))} totalExerciseCount={totalExerciseCount} records={exerciseRecords} userId={user.id} starredIds={starUnlocked ? starredIds : new Set<string>()} onBack={() => setScreen('tab')}
           onStart={(exs, durationMinutes, pool, mixed) => {
+            setSessionPreset(undefined);
             setSessionExercises(exs);
             setSessionMixed(mixed);
             setSessionPool(pool);
@@ -7545,7 +7583,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
     <>
       <GlobalStyle />
       <PageTransition screenKey={screen}>
-        <WorkoutScreen exercises={sessionExercises} pool={sessionPool} userId={user.id} durationMinutes={sessionDurationMinutes} mixed={sessionMixed} records={exerciseRecords}
+        <WorkoutScreen key={sessionPreset ? 'challenge' : 'regular'} exercises={sessionExercises} presetLogs={sessionPreset} pool={sessionPool} userId={user.id} durationMinutes={sessionDurationMinutes} mixed={sessionMixed} records={exerciseRecords}
           blockedIds={blockedIds} onToggleBlock={toggleBlock} starredIds={starredIds} onToggleStar={toggleStar} starLocked={!starUnlocked}
           onBack={() => setScreen('tab')} onFinish={handleFinish} />
       </PageTransition>
@@ -7591,7 +7629,7 @@ export default function AppClient({ user, stats: initialStats, exercises: initia
       <div className="px-5 pt-5">
         <button onClick={() => setTab('home')} className="flex items-center gap-1.5 text-xs font-bold" style={{ color: C.muted, ...SG }}><ArrowLeft size={14} /> Home</button>
       </div>
-      <FriendsScreen />
+      <FriendsScreen onStartChallenge={startFriendChallenge} />
     </>
   );
   else if (tab === 'tests') content = <TestsScreen tests={fitnessTests} results={fitnessResults} level={stats.level} available={testsAvailable} newIds={newTests.map((t) => t.id)}
