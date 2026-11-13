@@ -3079,6 +3079,9 @@ function WorkoutScreen({ exercises: initialExercises, pool: fullPool, userId, du
                 <Stepper label="Reps" value={log.reps} onChange={(v) => setLogs((p) => ({ ...p, [ex.id]: { ...p[ex.id], reps: v } }))} step={1} unit="reps" min={1} />
                 <Stepper label="Sets" value={log.sets} onChange={(v) => { setLogs((p) => ({ ...p, [ex.id]: { ...p[ex.id], sets: v } })); if (!isDone && (setsDone[ex.id] ?? 0) >= v) markExerciseDone(ex.id); }} step={1} unit="sets" min={1} />
               </div>
+              {pickPrimaryEquipment(ex.equipment) !== 'bodyweight' && (
+                <p className="mt-1.5 text-center text-[10px]" style={{ color: C.muted }}>Weight = total kg you lift. Two bells or dumbbells? Add them together.</p>
+              )}
               {!isDone && (setsDone[ex.id] ?? 0) === 0 && (log.weight !== ex.default_weight_kg || log.reps !== ex.default_reps || log.sets !== ex.default_sets) && (
                 <button
                   onClick={() => setLogs((p) => ({ ...p, [ex.id]: { weight: ex.default_weight_kg, reps: ex.default_reps, sets: ex.default_sets } }))}
